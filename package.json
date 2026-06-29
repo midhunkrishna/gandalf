@@ -10,7 +10,10 @@
     "gandalf": "tsx bin/gandalf.ts",
     "generate": "tsx bin/gandalf.ts generate",
     "serve": "tsx bin/gandalf.ts serve",
+    "dev": "vite",
+    "build:web": "vite build",
     "typecheck": "tsc --noEmit",
+    "typecheck:web": "tsc -p web/tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },

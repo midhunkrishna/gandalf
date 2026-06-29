@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * gandalf design system — warm editorial.
+ * Colors are H S% L% triplets consumed as hsl(var(--x) / <alpha>). One stable hue
+ * per concept; reused across code gutter, graph node, and legend (dual coding).
+ */
+@layer base {
+  :root {
+    --bg: 40 38% 96%;
+    --surface: 42 44% 98%;
+    --surface-2: 38 28% 93%;
+    --ink: 24 16% 18%;
+    --muted: 36 24% 90%;
+    --muted-ink: 28 9% 41%;
+    --line: 34 20% 83%;
+
+    --primary: 14 64% 49%;       /* terracotta */
+    --primary-ink: 40 40% 97%;
+    --sage: 146 22% 40%;
+    --gold: 38 72% 45%;
+    --danger: 6 64% 47%;
+    --ring: 14 64% 49%;
+
+    /* dual-coding concept hues */
+    --added: 142 40% 37%;
+    --removed: 6 62% 49%;
+    --modified: 36 72% 45%;
+    --unchanged: 30 8% 58%;
+
+    --radius-sm: 0.25rem;
+    --radius: 0.5rem;
+    --radius-lg: 0.875rem;
+
+    --shadow-xs: 0 1px 2px hsl(28 25% 18% / 0.06);
+    --shadow-sm: 0 1px 2px hsl(28 25% 18% / 0.06), 0 1px 3px hsl(28 25% 18% / 0.08);
+    --shadow-md: 0 2px 4px hsl(28 25% 18% / 0.05), 0 4px 12px hsl(28 25% 18% / 0.10);
+    --shadow-lg: 0 4px 8px hsl(28 25% 18% / 0.05), 0 12px 28px hsl(28 25% 18% / 0.12);
+    --shadow-xl: 0 8px 16px hsl(28 25% 18% / 0.07), 0 24px 56px hsl(28 25% 18% / 0.16);
+
+    --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+    --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  .dark {
+    --bg: 28 12% 10%;
+    --surface: 28 12% 13%;
+    --surface-2: 26 10% 17%;
+    --ink: 40 28% 91%;
+    --muted: 28 8% 21%;
+    --muted-ink: 36 12% 65%;
+    --line: 30 9% 25%;
+
+    --primary: 14 74% 59%;
+    --primary-ink: 24 22% 11%;
+    --sage: 146 30% 56%;
+    --gold: 40 80% 60%;
+    --danger: 8 70% 61%;
+    --ring: 14 74% 61%;
+
+    --added: 142 46% 53%;
+    --removed: 8 70% 61%;
+    --modified: 40 82% 60%;
+    --unchanged: 30 6% 48%;
+
+    --shadow-xs: 0 1px 2px hsl(0 0% 0% / 0.3);
+    --shadow-sm: 0 1px 2px hsl(0 0% 0% / 0.3), 0 1px 3px hsl(0 0% 0% / 0.36);
+    --shadow-md: 0 2px 4px hsl(0 0% 0% / 0.32), 0 6px 18px hsl(0 0% 0% / 0.40);
+    --shadow-lg: 0 4px 10px hsl(0 0% 0% / 0.34), 0 14px 34px hsl(0 0% 0% / 0.46);
+    --shadow-xl: 0 8px 18px hsl(0 0% 0% / 0.40), 0 28px 64px hsl(0 0% 0% / 0.55);
+  }
+
+  * {
+    border-color: hsl(var(--line));
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: hsl(var(--bg));
+    color: hsl(var(--ink));
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "ss01", "cv01";
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.012em;
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary) / 0.22);
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Accessibility: honor reduced-motion everywhere (scroll narrative respects this too). */
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
