@@ -8,6 +8,7 @@ import {
   listLessons,
   defaultLessonsDir,
 } from "../src/core/lesson.ts";
+import { startServer, webBuilt } from "../src/server/serve.ts";
 
 const program = new Command();
 
@@ -69,10 +70,19 @@ program
 
 program
   .command("serve")
-  .description("Start the interactive viewer (Phase 1).")
-  .action(() => {
-    console.error("`gandalf serve` arrives in Phase 1 (React + Hono viewer).");
-    process.exitCode = 1;
+  .description("Serve the interactive viewer + lesson API.")
+  .option("--cwd <dir>", "repository directory", process.cwd())
+  .option("--out-dir <dir>", "lessons directory")
+  .option("--port <n>", "port", "4173")
+  .action(async (opts) => {
+    const cwd = await repoRoot(resolve(opts.cwd));
+    const lessonsDir = opts.outDir ? resolve(opts.outDir) : defaultLessonsDir(cwd);
+    if (!webBuilt()) {
+      console.error("Viewer not built yet. Run: npm run build:web");
+      process.exitCode = 1;
+      return;
+    }
+    await startServer({ lessonsDir, port: Number(opts.port) || 4173 });
   });
 
 program

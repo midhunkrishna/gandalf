@@ -9,7 +9,10 @@ export default defineConfig({
   root: resolve(import.meta.dirname, "web"),
   plugins: [react()],
   resolve: {
-    alias: { "@": resolve(import.meta.dirname, "web/src") },
+    alias: {
+      "@": resolve(import.meta.dirname, "web/src"),
+      "@engine": resolve(import.meta.dirname, "src"),
+    },
   },
   css: {
     postcss: { plugins: [tailwindcss(), autoprefixer()] },

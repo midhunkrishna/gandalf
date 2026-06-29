@@ -14,7 +14,7 @@
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
     "types": ["node"],
-    "paths": { "@/*": ["./src/*"] }
+    "paths": { "@/*": ["./src/*"], "@engine/*": ["../src/*"] }
   },
   "include": ["src", "../src/core"]
 }
