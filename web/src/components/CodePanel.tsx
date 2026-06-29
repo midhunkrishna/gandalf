@@ -5,19 +5,19 @@ import type { FileChange } from "@engine/core/schemas.ts";
 
 /**
  * Diff view, themed to the design tokens (see `.gandalf-diff` in index.css).
- * Always line-by-line: its line numbers live in normal table cells so they scroll with
- * the code. (diff2html's side-by-side uses position:absolute line numbers that detach
- * from the code on all-added/all-removed files.) Horizontally scrollable, never clipped.
+ * Line-by-line by default; `split` renders GitHub-style side-by-side (before | after).
+ * Both modes pin diff2html's otherwise-absolute line numbers into normal table flow
+ * (see the `.gandalf-diff` overrides). Horizontally scrollable, never clipped.
  */
-export function CodePanel({ file }: { file: FileChange; wide?: boolean }) {
+export function CodePanel({ file, split = false }: { file: FileChange; split?: boolean }) {
   const markup = useMemo(() => {
     if (!file.unifiedDiff.trim()) return "";
     return diffHtml(file.unifiedDiff, {
       drawFileList: false,
-      outputFormat: "line-by-line",
+      outputFormat: split ? "side-by-side" : "line-by-line",
       matching: "lines",
     });
-  }, [file.unifiedDiff]);
+  }, [file.unifiedDiff, split]);
 
   if (!markup) {
     return <p className="px-1 text-sm text-muted-ink">No textual diff for this file.</p>;

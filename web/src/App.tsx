@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MotionConfig } from "framer-motion";
-import { Moon, Sun, GitBranch, Brain } from "lucide-react";
+import { Moon, Sun, GitBranch, Brain, FileCog } from "lucide-react";
 import type { LessonBundle, LessonMeta } from "@engine/core/schemas.ts";
 import { Button } from "@/ui/button.tsx";
 import { Badge } from "@/ui/badge.tsx";
@@ -11,6 +11,8 @@ import { LessonLibrary } from "@/components/LessonLibrary.tsx";
 import { ReviewSession } from "@/components/ReviewSession.tsx";
 import { fallbackLesson, fetchLesson, fetchLessonList } from "@/lib/loadLesson.ts";
 import { dueCount as countDue } from "@/lib/reviewStore.ts";
+import { useFileFilter } from "@/lib/fileFilter.tsx";
+import { isHidden } from "@/lib/fileKind.ts";
 
 type View = "lesson" | "tokens";
 
@@ -22,6 +24,8 @@ export function App() {
   const [library, setLibrary] = useState<LessonMeta[]>([]);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [dueN, setDueN] = useState(0);
+  const { showAll, setShowAll } = useFileFilter();
+  const hiddenCount = useMemo(() => lesson.files.filter((f) => isHidden(f.path)).length, [lesson]);
 
   useEffect(() => {
     fetchLesson().then((l) => {
@@ -62,6 +66,28 @@ export function App() {
         <div className="flex items-center gap-2">
           {view === "lesson" && (
             <>
+              {hiddenCount > 0 && (
+                <button
+                  onClick={() => setShowAll(!showAll)}
+                  role="switch"
+                  aria-checked={showAll}
+                  aria-label={showAll ? "Hide config & generated files" : `Show ${hiddenCount} config & generated files`}
+                  title={
+                    showAll
+                      ? "Hiding config/generated files (click to hide)"
+                      : `${hiddenCount} config/generated file${hiddenCount > 1 ? "s" : ""} hidden — click to show`
+                  }
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm transition-colors duration-fast",
+                    showAll
+                      ? "border-primary/40 bg-primary/5 text-primary"
+                      : "border-line text-muted-ink hover:text-ink",
+                  )}
+                >
+                  <FileCog className="h-4 w-4" />
+                  {showAll ? "All files" : `+${hiddenCount}`}
+                </button>
+              )}
               <button
                 onClick={() => setReviewOpen(true)}
                 aria-label={`Spaced review${dueN ? ` — ${dueN} due` : ""}`}

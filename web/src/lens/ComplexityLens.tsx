@@ -1,8 +1,10 @@
+import { useMemo } from "react";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
-import type { LessonBundle } from "@engine/core/schemas.ts";
+import type { FnComplexity, LessonBundle } from "@engine/core/schemas.ts";
 import { SlopeChart } from "@/components/SlopeChart.tsx";
 import { Treemap } from "@/components/Treemap.tsx";
 import { Reveal } from "@/components/Reveal.tsx";
+import { useFileFilter } from "@/lib/fileFilter.tsx";
 
 const H3 = "text-xs font-semibold uppercase tracking-[0.12em] text-muted-ink";
 const base = (p: string) => p.split("/").pop() ?? p;
@@ -26,9 +28,29 @@ function DeltaCard({ label, value }: { label: string; value: number }) {
   );
 }
 
+function deltaScorecard(rows: FnComplexity[]) {
+  const sum = (sel: (p: FnComplexity) => number | null) => rows.reduce((a, p) => a + (sel(p) ?? 0), 0);
+  return {
+    deltaCyclomatic: sum((p) => p.cyclomaticAfter) - sum((p) => p.cyclomaticBefore),
+    deltaCognitive: sum((p) => p.cognitiveAfter) - sum((p) => p.cognitiveBefore),
+    deltaNesting: sum((p) => p.nestingAfter) - sum((p) => p.nestingBefore),
+    deltaLoc: sum((p) => p.locAfter) - sum((p) => p.locBefore),
+  };
+}
+
 export function ComplexityLens({ lesson }: { lesson: LessonBundle }) {
   const c = lesson.complexity;
-  const hasCyclomatic = c.perFunction.some((f) => f.cyclomaticAfter != null || f.cyclomaticBefore != null);
+  const { visible } = useFileFilter();
+  // Hide config/generated files (and recompute the scorecard from what's left) so the metrics
+  // reflect the code under review, not lockfile/manifest churn.
+  const perFunction = useMemo(() => c.perFunction.filter((f) => visible(f.file)), [c.perFunction, visible]);
+  const hotspots = useMemo(() => c.hotspots.filter((h) => visible(h.path)), [c.hotspots, visible]);
+  const coupling = useMemo(
+    () => c.coupling.filter((cp) => visible(cp.a) && visible(cp.b)),
+    [c.coupling, visible],
+  );
+  const scorecard = useMemo(() => deltaScorecard(perFunction), [perFunction]);
+  const hasCyclomatic = perFunction.some((f) => f.cyclomaticAfter != null || f.cyclomaticBefore != null);
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 p-8">
@@ -43,10 +65,10 @@ export function ComplexityLens({ lesson }: { lesson: LessonBundle }) {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {([
-          ["Cyclomatic", c.scorecard.deltaCyclomatic],
-          ["Cognitive", c.scorecard.deltaCognitive],
-          ["Nesting", c.scorecard.deltaNesting],
-          ["LOC", c.scorecard.deltaLoc],
+          ["Cyclomatic", scorecard.deltaCyclomatic],
+          ["Cognitive", scorecard.deltaCognitive],
+          ["Nesting", scorecard.deltaNesting],
+          ["LOC", scorecard.deltaLoc],
         ] as const).map(([label, value], i) => (
           <Reveal key={label} delay={i * 0.05}>
             <DeltaCard label={label} value={value} />
@@ -56,17 +78,17 @@ export function ComplexityLens({ lesson }: { lesson: LessonBundle }) {
 
       <Reveal as="section" className="space-y-3">
         <h3 className={H3}>Per-function — cognitive (before → after)</h3>
-        <SlopeChart data={c.perFunction} metric="cognitive" />
+        <SlopeChart data={perFunction} metric="cognitive" />
       </Reveal>
 
       {hasCyclomatic && (
         <Reveal as="section" className="space-y-3">
           <h3 className={H3}>Per-function — cyclomatic (before → after)</h3>
-          <SlopeChart data={c.perFunction} metric="cyclomatic" />
+          <SlopeChart data={perFunction} metric="cyclomatic" />
         </Reveal>
       )}
 
-      {c.hotspots.length > 0 && (
+      {hotspots.length > 0 && (
         <Reveal as="section" className="space-y-2">
           <h3 className={H3}>
             Hotspot map{" "}
@@ -75,12 +97,12 @@ export function ComplexityLens({ lesson }: { lesson: LessonBundle }) {
             </span>
           </h3>
           <div className="rounded-lg border border-line bg-surface p-3">
-            <Treemap hotspots={c.hotspots} />
+            <Treemap hotspots={hotspots} />
           </div>
         </Reveal>
       )}
 
-      {c.coupling.length > 0 && (
+      {coupling.length > 0 && (
         <Reveal as="section" className="space-y-2">
           <h3 className={H3}>
             Change coupling{" "}
@@ -89,7 +111,7 @@ export function ComplexityLens({ lesson }: { lesson: LessonBundle }) {
             </span>
           </h3>
           <ul className="space-y-1.5">
-            {c.coupling.map((cp, i) => (
+            {coupling.map((cp, i) => (
               <li key={i} className="flex items-center gap-2 text-sm">
                 <span className="font-mono text-xs text-ink">{base(cp.a)}</span>
                 <span className="text-muted-ink">↔</span>

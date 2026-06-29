@@ -176,6 +176,22 @@
   width: auto;
   padding: 0 0.6em;
 }
+/* Same fix for split (side-by-side) view. */
+.gandalf-diff td.d2h-code-side-linenumber {
+  position: static;
+  display: table-cell;
+  width: 1%;
+  white-space: nowrap;
+  vertical-align: top;
+  direction: ltr;
+  padding: 0 0.4em;
+  text-align: right;
+}
+.gandalf-diff .d2h-code-side-line {
+  position: static;
+  width: auto;
+  padding: 0 0.6em;
+}
 
 /* Walkthrough code stage (Shiki) — focus-and-dim, themed background. */
 .gandalf-code pre.shiki {

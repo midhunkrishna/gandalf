@@ -2,13 +2,15 @@ import type { LessonBundle } from "@engine/core/schemas.ts";
 import { Badge } from "@/ui/badge.tsx";
 import { Reveal } from "@/components/Reveal.tsx";
 import { statusTone } from "@/lib/concept.ts";
+import { useFileFilter } from "@/lib/fileFilter.tsx";
 
 const H3 = "text-xs font-semibold uppercase tracking-[0.12em] text-muted-ink";
 
 export function OverviewLens({ lesson }: { lesson: LessonBundle }) {
   const m = lesson.meta;
-  const changed = lesson.files.filter((f) => f.status !== "unchanged");
-  const hotspots = lesson.complexity.hotspots.slice(0, 6);
+  const { visible } = useFileFilter();
+  const changed = lesson.files.filter((f) => f.status !== "unchanged" && visible(f.path));
+  const hotspots = lesson.complexity.hotspots.filter((h) => visible(h.path)).slice(0, 6);
   const maxScore = hotspots[0]?.score ?? 1;
 
   const stats: Array<[string, string]> = [

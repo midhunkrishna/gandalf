@@ -1,6 +1,6 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronUp, ChevronDown } from "lucide-react";
 import type { LessonBundle } from "@engine/core/schemas.ts";
 import { Badge } from "@/ui/badge.tsx";
 import { cn } from "@/lib/cn.ts";
@@ -34,83 +34,132 @@ const LENSES: Array<[string, string]> = [
   ["recall", "Recall"],
 ];
 
+// Lenses that render TieredExplanation → only these show the depth selector.
+const DEPTH_TABS = new Set(["behavioral", "contract", "dataflow", "dependency"]);
+// Lenses with predict-then-reveal gating → only these show the quiz toggle.
+const QUIZ_TABS = new Set(["behavioral", "contract"]);
+
 const triggerCls = cn(
   "border-b-2 border-transparent px-3 py-2.5 text-sm text-muted-ink outline-none transition-colors duration-fast",
   "hover:text-ink data-[state=active]:border-primary data-[state=active]:text-ink",
 );
 
+const iconBtn =
+  "rounded-md p-1 text-muted-ink transition-colors duration-fast hover:bg-surface-2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
+
+function heroInit(): boolean {
+  try {
+    return localStorage.getItem("gandalf:hero-collapsed") === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function LessonView({ lesson }: { lesson: LessonBundle }) {
+  const [tab, setTab] = useState("dependency");
+  const [heroCollapsed, setHeroCollapsed] = useState<boolean>(heroInit);
+  const setHero = (v: boolean) => {
+    setHeroCollapsed(v);
+    try {
+      localStorage.setItem("gandalf:hero-collapsed", v ? "1" : "0");
+    } catch {
+      /* private mode */
+    }
+  };
+
   return (
     <DepthProvider>
       <QuizModeProvider>
-      <div className="flex min-h-0 flex-1 flex-col">
-        <div className="border-b border-line bg-surface/40 px-6 py-4">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="text-xl">{lesson.meta.title}</h1>
-            <Badge tone={lesson.meta.verdict === "behavioral" ? "modified" : "safe"}>
-              {lesson.meta.verdict === "behavioral" ? "behavioral change" : "refactor-only"}
-            </Badge>
-            {lesson.meta.breakingCount > 0 && (
-              <Badge tone="breaking">{lesson.meta.breakingCount} breaking</Badge>
-            )}
-          </div>
-          <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-muted-ink">
-            {lesson.meta.hypothesis}
-          </p>
-        </div>
-
-        <Tabs.Root defaultValue="dependency" className="flex min-h-0 flex-1 flex-col">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-6">
-            <Tabs.List className="flex">
-              {LENSES.map(([value, label]) => (
-                <Tabs.Trigger key={value} value={value} className={triggerCls}>
-                  {label}
-                </Tabs.Trigger>
-              ))}
-            </Tabs.List>
-            <div className="flex items-center gap-3">
-              <QuizToggle />
-              <DepthSelector />
+        <div className="flex min-h-0 flex-1 flex-col">
+          {!heroCollapsed && (
+            <div className="relative border-b border-line bg-surface/40 px-6 py-4">
+              <button
+                onClick={() => setHero(true)}
+                aria-label="Collapse header"
+                title="Collapse — give the tabs more room"
+                className={cn(iconBtn, "absolute right-4 top-4")}
+              >
+                <ChevronUp className="h-4 w-4" />
+              </button>
+              <div className="flex flex-wrap items-center gap-2.5 pr-8">
+                <h1 className="text-xl">{lesson.meta.title}</h1>
+                <Badge tone={lesson.meta.verdict === "behavioral" ? "modified" : "safe"}>
+                  {lesson.meta.verdict === "behavioral" ? "behavioral change" : "refactor-only"}
+                </Badge>
+                {lesson.meta.breakingCount > 0 && (
+                  <Badge tone="breaking">{lesson.meta.breakingCount} breaking</Badge>
+                )}
+              </div>
+              <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-muted-ink">
+                {lesson.meta.hypothesis}
+              </p>
             </div>
-          </div>
+          )}
 
-          <Tabs.Content value="overview" className="min-h-0 flex-1 overflow-y-auto outline-none">
-            <OverviewLens lesson={lesson} />
-          </Tabs.Content>
-          <Tabs.Content value="dependency" className="min-h-0 flex-1 outline-none">
-            <DependencyLens lesson={lesson} />
-          </Tabs.Content>
-          <Tabs.Content value="walkthrough" className="min-h-0 flex-1 outline-none">
-            <Suspense
-              fallback={
-                <div className="flex h-full items-center justify-center text-muted-ink">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                </div>
-              }
-            >
-              <WalkthroughLens lesson={lesson} />
-            </Suspense>
-          </Tabs.Content>
-          <Tabs.Content value="behavioral" className="min-h-0 flex-1 overflow-y-auto outline-none">
-            <BehavioralLens lesson={lesson} />
-          </Tabs.Content>
-          <Tabs.Content value="contract" className="min-h-0 flex-1 overflow-y-auto outline-none">
-            <ContractLens lesson={lesson} />
-          </Tabs.Content>
-          <Tabs.Content value="dataflow" className="min-h-0 flex-1 overflow-y-auto outline-none">
-            <DataFlowLens lesson={lesson} />
-          </Tabs.Content>
-          <Tabs.Content value="complexity" className="min-h-0 flex-1 overflow-y-auto outline-none">
-            <ComplexityLens lesson={lesson} />
-          </Tabs.Content>
-          <Tabs.Content value="patterns" className="min-h-0 flex-1 overflow-y-auto outline-none">
-            <PatternsLens lesson={lesson} />
-          </Tabs.Content>
-          <Tabs.Content value="recall" className="min-h-0 flex-1 overflow-y-auto outline-none">
-            <RecallPanel lesson={lesson} />
-          </Tabs.Content>
-        </Tabs.Root>
-      </div>
+          <Tabs.Root value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-6">
+              <div className="flex items-center gap-1.5">
+                {heroCollapsed && (
+                  <button
+                    onClick={() => setHero(false)}
+                    aria-label="Expand header"
+                    title="Show the lesson title & summary"
+                    className={iconBtn}
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                )}
+                <Tabs.List className="flex">
+                  {LENSES.map(([value, label]) => (
+                    <Tabs.Trigger key={value} value={value} className={triggerCls}>
+                      {label}
+                    </Tabs.Trigger>
+                  ))}
+                </Tabs.List>
+              </div>
+              <div className="flex items-center gap-3">
+                {QUIZ_TABS.has(tab) && <QuizToggle />}
+                {DEPTH_TABS.has(tab) && <DepthSelector />}
+              </div>
+            </div>
+
+            <Tabs.Content value="overview" className="min-h-0 flex-1 overflow-y-auto outline-none">
+              <OverviewLens lesson={lesson} />
+            </Tabs.Content>
+            <Tabs.Content value="dependency" className="min-h-0 flex-1 outline-none">
+              <DependencyLens lesson={lesson} />
+            </Tabs.Content>
+            <Tabs.Content value="walkthrough" className="min-h-0 flex-1 outline-none">
+              <Suspense
+                fallback={
+                  <div className="flex h-full items-center justify-center text-muted-ink">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  </div>
+                }
+              >
+                <WalkthroughLens lesson={lesson} />
+              </Suspense>
+            </Tabs.Content>
+            <Tabs.Content value="behavioral" className="min-h-0 flex-1 overflow-y-auto outline-none">
+              <BehavioralLens lesson={lesson} />
+            </Tabs.Content>
+            <Tabs.Content value="contract" className="min-h-0 flex-1 overflow-y-auto outline-none">
+              <ContractLens lesson={lesson} />
+            </Tabs.Content>
+            <Tabs.Content value="dataflow" className="min-h-0 flex-1 overflow-y-auto outline-none">
+              <DataFlowLens lesson={lesson} />
+            </Tabs.Content>
+            <Tabs.Content value="complexity" className="min-h-0 flex-1 overflow-y-auto outline-none">
+              <ComplexityLens lesson={lesson} />
+            </Tabs.Content>
+            <Tabs.Content value="patterns" className="min-h-0 flex-1 overflow-y-auto outline-none">
+              <PatternsLens lesson={lesson} />
+            </Tabs.Content>
+            <Tabs.Content value="recall" className="min-h-0 flex-1 overflow-y-auto outline-none">
+              <RecallPanel lesson={lesson} />
+            </Tabs.Content>
+          </Tabs.Root>
+        </div>
       </QuizModeProvider>
     </DepthProvider>
   );
