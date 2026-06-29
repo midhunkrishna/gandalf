@@ -322,7 +322,24 @@ export const FilePassResult = z.object({
 });
 export type FilePassResult = z.infer<typeof FilePassResult>;
 
-/** Synthesis pass: cross-cutting artifacts from the per-file results + evidence + ticket intent. */
+/**
+ * Synthesis is split into focused parallel passes (lower latency + smaller, more
+ * reliably-satisfiable contracts per call). Each pass validates against one schema:
+ *  - SynthNarrative  → title/hypothesis/summary
+ *  - ModuleGraphDelta → graph
+ *  - DataFlow        → dataflow
+ *  - Patterns        → patterns
+ *  - Behavioral      → behavioral (its `verdict` is the lesson-level verdict)
+ *  - Explanations    → per-lens tiered prose
+ */
+export const SynthNarrative = z.object({
+  title: z.string(),
+  hypothesis: z.string(),
+  summary: z.string(),
+});
+export type SynthNarrative = z.infer<typeof SynthNarrative>;
+
+/** Legacy monolithic synthesis shape — retained for reference; pipeline now fans out the passes above. */
 export const SynthesisResult = z.object({
   title: z.string(),
   hypothesis: z.string(),

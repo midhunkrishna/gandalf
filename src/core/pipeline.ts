@@ -9,11 +9,16 @@ import { buildEvidence, evidenceForFile, type EvidenceBundle } from "./evidence.
 import { normalizeModule, languageOf } from "./modules.ts";
 import { classifyPath, isFormattingOnly } from "./noise.ts";
 import { loadTickets, matchTicket, ticketIntent } from "./tickets.ts";
-import { claudeStructured, type ModelAlias } from "./claude.ts";
-import { filePassPrompt, synthesisPrompt, type PerFileSummary } from "./prompts.ts";
+import { claudeStructured, type ClaudeOptions, type ModelAlias } from "./claude.ts";
+import { filePassPrompt, synthesisPrompts, type Built, type PerFileSummary } from "./prompts.ts";
 import {
   FilePassResult,
-  SynthesisResult,
+  SynthNarrative,
+  ModuleGraphDelta,
+  DataFlow,
+  Patterns,
+  Behavioral,
+  Explanations,
   LessonBundle,
   type FileChange,
   type Complexity,
@@ -159,7 +164,7 @@ export async function generateLesson(opts: GenerateOptions): Promise<LessonBundl
   log(`Analyzing ${analyzable.length} file(s) with claude -p…`);
   const contracts: ContractChange[] = [];
   const cognitiveByFile = new Map<string, FilePassResult["cognitive"]>();
-  await mapLimit(analyzable, concurrency, async (f) => {
+  const analyzeOne = async (f: FileChange) => {
     const built = filePassPrompt(f, evidenceForFile(ev, f.path));
     const res = await claudeStructured(FilePassResult, {
       system: built.system,
@@ -174,7 +179,15 @@ export async function generateLesson(opts: GenerateOptions): Promise<LessonBundl
     // collect contracts onto the lesson later via closure
     contracts.push(...res.contracts);
     log(`  ✓ ${f.path}`);
-  });
+  };
+  // Warm-start fan-out: every `claude -p` shares one large cacheable prompt prefix
+  // (the Claude Code preamble + tool schemas). Run the FIRST file alone so that
+  // prefix is written to the cache once, then fan out the rest as cache-reads —
+  // avoids N concurrent calls all paying the cache-creation penalty.
+  if (analyzable.length > 0) {
+    await analyzeOne(analyzable[0]!);
+    await mapLimit(analyzable.slice(1), concurrency, (f) => analyzeOne(f));
+  }
 
   // ticket overlay
   const tickets = await loadTickets(cwd);
@@ -190,14 +203,28 @@ export async function generateLesson(opts: GenerateOptions): Promise<LessonBundl
     cognitive: cognitiveByFile.get(f.path) ?? [],
   }));
 
-  log("Synthesizing cross-cutting lesson with claude -p…");
-  const synth = await claudeStructured(SynthesisResult, {
-    ...synthesisPrompt(summaries, evidenceSummary(ev), intent),
-    model: opts.modelSynth ?? "opus",
+  log("Synthesizing cross-cutting lesson with claude -p (6 focused passes)…");
+  const prompts = synthesisPrompts(summaries, evidenceSummary(ev), intent);
+  const synthModel = opts.modelSynth ?? "opus";
+  const synthOpts = (built: Built, label: string): ClaudeOptions => ({
+    system: built.system,
+    prompt: built.prompt,
+    model: synthModel,
     cwd,
-    label: "synthesis",
+    label,
     timeoutMs: 360_000,
   });
+  // The per-file passes above already warmed the shared prompt-prefix cache, so the
+  // synthesis passes fan out concurrently as cache-reads. Each is small + focused, so
+  // wall-clock ≈ the slowest single pass instead of one ~5-min monolith.
+  const [narrative, graph, dataflow, patterns, behavioral, explanations] = await Promise.all([
+    claudeStructured(SynthNarrative, synthOpts(prompts.narrative, "synth:narrative")),
+    claudeStructured(ModuleGraphDelta, synthOpts(prompts.graph, "synth:graph")),
+    claudeStructured(DataFlow, synthOpts(prompts.dataflow, "synth:dataflow")),
+    claudeStructured(Patterns, synthOpts(prompts.patterns, "synth:patterns")),
+    claudeStructured(Behavioral, synthOpts(prompts.behavioral, "synth:behavioral")),
+    claudeStructured(Explanations, synthOpts(prompts.explanations, "synth:explanations")),
+  ]);
 
   const complexity = assembleComplexity(analyzable, cognitiveByFile, ev);
   const breakingCount = contracts.filter((c) => c.safety === "breaking").length;
@@ -206,24 +233,25 @@ export async function generateLesson(opts: GenerateOptions): Promise<LessonBundl
   const bundle = {
     meta: {
       id,
-      title: synth.title,
+      title: narrative.title,
       fromRef: fromShort,
       toRef: toShort,
       ticketId: ticket?.id ?? opts.ticketId ?? null,
       createdAt: new Date().toISOString(),
-      hypothesis: synth.hypothesis,
-      summary: synth.summary,
-      verdict: synth.verdict,
+      hypothesis: narrative.hypothesis,
+      summary: narrative.summary,
+      // The behavioral pass owns the lesson-level verdict (single source of truth).
+      verdict: behavioral.verdict,
       breakingCount,
     },
     files,
     contracts,
-    graph: synth.graph,
-    dataflow: synth.dataflow,
+    graph,
+    dataflow,
     complexity,
-    patterns: synth.patterns,
-    behavioral: synth.behavioral,
-    explanations: synth.explanations,
+    patterns,
+    behavioral,
+    explanations,
   };
 
   return LessonBundle.parse(bundle);
