@@ -66,6 +66,25 @@ const architectText = await page.locator("main p").first().innerText().catch(() 
 tabShots.depthChanged = juniorText !== architectText;
 await page.screenshot({ path: `${OUT}/10-architect.png` });
 
+// walkthrough (scrollytelling): intro, then scroll into the sticky-code scenes
+await page.getByRole("tab", { name: "Walkthrough" }).click().catch((e) => errors.push("walkthrough: " + e.message));
+await page.waitForTimeout(1700);
+await page.screenshot({ path: `${OUT}/11-walk-intro.png` });
+await page.mouse.move(720, 460);
+for (let i = 0; i < 7; i++) {
+  await page.mouse.wheel(0, 700);
+  await page.waitForTimeout(450);
+}
+await page.waitForTimeout(600);
+tabShots.codeStage = await page.locator(".gandalf-code").count();
+tabShots.focusLines = await page.locator(".gandalf-code .cl-focus").count();
+await page.screenshot({ path: `${OUT}/12-walk-scene.png` });
+for (let i = 0; i < 6; i++) {
+  await page.mouse.wheel(0, 700);
+  await page.waitForTimeout(450);
+}
+await page.screenshot({ path: `${OUT}/13-walk-scene2.png` });
+
 const darkBtn = page.getByRole("button", { name: /switch to (dark|light) mode/i });
 const darkBtnCount = await darkBtn.count();
 await darkBtn.first().click().catch((e) => errors.push("dark click: " + e.message));

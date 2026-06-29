@@ -1,4 +1,6 @@
+import { lazy, Suspense } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
+import { Loader2 } from "lucide-react";
 import type { LessonBundle } from "@engine/core/schemas.ts";
 import { Badge } from "@/ui/badge.tsx";
 import { cn } from "@/lib/cn.ts";
@@ -10,9 +12,15 @@ import { BehavioralLens } from "@/lens/BehavioralLens.tsx";
 import { ContractLens } from "@/lens/ContractLens.tsx";
 import { DataFlowLens } from "@/lens/DataFlowLens.tsx";
 
+// Lazy-loaded: pulls in Shiki + Lenis only when the walkthrough is opened.
+const WalkthroughLens = lazy(() =>
+  import("@/lens/WalkthroughLens.tsx").then((m) => ({ default: m.WalkthroughLens })),
+);
+
 const LENSES: Array<[string, string]> = [
   ["overview", "Overview"],
   ["dependency", "Dependencies"],
+  ["walkthrough", "Walkthrough"],
   ["behavioral", "Behavioral"],
   ["contract", "Contracts"],
   ["dataflow", "Data flow"],
@@ -59,6 +67,17 @@ export function LessonView({ lesson }: { lesson: LessonBundle }) {
           </Tabs.Content>
           <Tabs.Content value="dependency" className="min-h-0 flex-1 outline-none">
             <DependencyLens lesson={lesson} />
+          </Tabs.Content>
+          <Tabs.Content value="walkthrough" className="min-h-0 flex-1 outline-none">
+            <Suspense
+              fallback={
+                <div className="flex h-full items-center justify-center text-muted-ink">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                </div>
+              }
+            >
+              <WalkthroughLens lesson={lesson} />
+            </Suspense>
           </Tabs.Content>
           <Tabs.Content value="behavioral" className="min-h-0 flex-1 overflow-y-auto outline-none">
             <BehavioralLens lesson={lesson} />
