@@ -145,7 +145,37 @@
 .gandalf-diff .d2h-code-line del { background: hsl(var(--removed) / 0.28); text-decoration: none; }
 .gandalf-diff .d2h-emptyplaceholder,
 .gandalf-diff .d2h-code-side-emptyplaceholder { background: hsl(var(--muted) / 0.4); border-color: hsl(var(--line)); }
-.gandalf-diff .d2h-code-line-ctn { color: hsl(var(--ink)); }
+.gandalf-diff .d2h-code-line-ctn { color: hsl(var(--ink)); white-space: pre; }
+
+/*
+ * diff2html positions its line-number <td> with `position: absolute` (and pads the code cell
+ * by 8em to leave room), relying on a per-row positioned ancestor that our table layout does
+ * not provide — so the numbers anchor to the viewport and float free of their code rows.
+ * Pin them back into normal table-cell flow and drop the compensating padding.
+ */
+.gandalf-diff td.d2h-code-linenumber {
+  position: static;
+  display: table-cell;
+  width: 1%;
+  white-space: nowrap;
+  vertical-align: top;
+  direction: ltr;
+  padding: 0;
+}
+.gandalf-diff .line-num1,
+.gandalf-diff .line-num2 {
+  float: none;
+  display: inline-block;
+  box-sizing: border-box;
+  width: 2.5em;
+  padding: 0 0.45em;
+  text-align: right;
+}
+.gandalf-diff .d2h-code-line {
+  position: static;
+  width: auto;
+  padding: 0 0.6em;
+}
 
 /* Walkthrough code stage (Shiki) — focus-and-dim, themed background. */
 .gandalf-code pre.shiki {
