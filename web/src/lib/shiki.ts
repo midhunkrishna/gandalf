@@ -18,6 +18,13 @@ export interface Focus {
   end: number;
 }
 
+/** Per-after-line diff status (added/modified/removal-marker) for GitHub-style colouring. */
+export interface LineMarks {
+  added: Set<number>;
+  modified: Set<number>;
+  removedBefore: Set<number>;
+}
+
 // Fine-grained core build: only these grammars + the wasm-free JS regex engine are
 // bundled. Importing the full `shiki` bundle instead pulls every language (and a 600KB
 // oniguruma wasm) into the single-file export — keep this list to what we actually render.
@@ -40,12 +47,17 @@ function resolveLang(hl: HighlighterCore, language: string): string {
   return hl.getLoadedLanguages().includes(lang) ? lang : "text";
 }
 
-/** Highlight code, marking lines in `focus` and dimming the rest (focus-and-dim). */
+/**
+ * Highlight code with focus-and-dim (the active beacon stays lit, the rest dims) plus
+ * GitHub-style diff colouring of changed lines (added=green, modified=yellow, red removal
+ * marker) when `marks` is provided.
+ */
 export async function highlightFocus(
   code: string,
   language: string,
   focus: Focus | null,
   dark: boolean,
+  marks?: LineMarks,
 ): Promise<string> {
   const hl = await highlighter();
   return hl.codeToHtml(code, {
@@ -54,9 +66,21 @@ export async function highlightFocus(
     transformers: [
       {
         line(node, line) {
-          if (!focus) return;
-          const base = node.properties.class ? `${String(node.properties.class)} ` : "";
-          node.properties.class = base + (line >= focus.start && line <= focus.end ? "cl-focus" : "cl-dim");
+          const cls: string[] = [];
+          if (focus) {
+            // The focal range is the scroll anchor (.cl-focus); everything else dims.
+            if (line >= focus.start && line <= focus.end) cls.push("cl-focus");
+            else cls.push("cl-dim");
+          }
+          if (marks) {
+            if (marks.added.has(line)) cls.push("cl-add");
+            else if (marks.modified.has(line)) cls.push("cl-mod");
+            if (marks.removedBefore.has(line)) cls.push("cl-removed-before");
+          }
+          if (cls.length) {
+            const base = node.properties.class ? `${String(node.properties.class)} ` : "";
+            node.properties.class = base + cls.join(" ");
+          }
         },
       },
     ],

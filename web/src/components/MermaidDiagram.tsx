@@ -12,22 +12,37 @@ export function MermaidDiagram({ code }: { code: string }) {
 
   useEffect(() => {
     let cancelled = false;
+    const id = `mmd-${++counter}`;
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: "strict",
       theme: isDark ? "dark" : "neutral",
       fontFamily: "ui-sans-serif, system-ui, sans-serif",
     });
-    mermaid
-      .render(`mmd-${++counter}`, code)
-      .then(({ svg }) => {
+    (async () => {
+      try {
+        // Validate first: render() injects a "Syntax error" graphic into the DOM (which then
+        // orphans across tab switches) when the source is invalid. parse({suppressErrors}) just
+        // returns false, so we fall back to <pre> without ever polluting the document.
+        const ok = await mermaid.parse(code, { suppressErrors: true });
+        if (cancelled) return;
+        if (!ok) {
+          setError(true);
+          return;
+        }
+        const { svg } = await mermaid.render(id, code);
         if (cancelled) return;
         if (ref.current) ref.current.innerHTML = svg;
         setError(false);
-      })
-      .catch(() => !cancelled && setError(true));
+      } catch {
+        if (!cancelled) setError(true);
+      }
+    })();
     return () => {
       cancelled = true;
+      // Remove any temp/measurement element mermaid may have left behind.
+      document.getElementById(id)?.remove();
+      document.getElementById("d" + id)?.remove();
     };
   }, [code, isDark]);
 

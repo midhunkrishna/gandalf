@@ -157,6 +157,7 @@ export function WalkthroughLens({ lesson }: { lesson: LessonBundle }) {
                   code={activeScene.file.afterBlob ?? ""}
                   language={activeScene.file.language}
                   focus={activeScene.focus}
+                  diff={activeScene.file.unifiedDiff}
                 />
               )}
             </div>
