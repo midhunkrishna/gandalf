@@ -11,6 +11,8 @@ import { DependencyLens } from "@/lens/DependencyLens.tsx";
 import { BehavioralLens } from "@/lens/BehavioralLens.tsx";
 import { ContractLens } from "@/lens/ContractLens.tsx";
 import { DataFlowLens } from "@/lens/DataFlowLens.tsx";
+import { ComplexityLens } from "@/lens/ComplexityLens.tsx";
+import { PatternsLens } from "@/lens/PatternsLens.tsx";
 
 // Lazy-loaded: pulls in Shiki + Lenis only when the walkthrough is opened.
 const WalkthroughLens = lazy(() =>
@@ -24,6 +26,8 @@ const LENSES: Array<[string, string]> = [
   ["behavioral", "Behavioral"],
   ["contract", "Contracts"],
   ["dataflow", "Data flow"],
+  ["complexity", "Complexity"],
+  ["patterns", "Patterns"],
 ];
 
 const triggerCls = cn(
@@ -87,6 +91,12 @@ export function LessonView({ lesson }: { lesson: LessonBundle }) {
           </Tabs.Content>
           <Tabs.Content value="dataflow" className="min-h-0 flex-1 overflow-y-auto outline-none">
             <DataFlowLens lesson={lesson} />
+          </Tabs.Content>
+          <Tabs.Content value="complexity" className="min-h-0 flex-1 overflow-y-auto outline-none">
+            <ComplexityLens lesson={lesson} />
+          </Tabs.Content>
+          <Tabs.Content value="patterns" className="min-h-0 flex-1 overflow-y-auto outline-none">
+            <PatternsLens lesson={lesson} />
           </Tabs.Content>
         </Tabs.Root>
       </div>

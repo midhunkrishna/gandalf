@@ -1,5 +1,5 @@
 import fixture from "@/fixtures/sample-lesson.json";
-import type { LessonBundle } from "@engine/core/schemas.ts";
+import type { LessonBundle, LessonMeta } from "@engine/core/schemas.ts";
 
 /** Bundled sample so the viewer renders instantly in dev (`npm run dev`) with no server. */
 export const fallbackLesson = fixture as unknown as LessonBundle;
@@ -13,4 +13,15 @@ export async function fetchLesson(id?: string): Promise<LessonBundle> {
     /* no server (dev) — use the fallback */
   }
   return fallbackLesson;
+}
+
+/** Fetch the persisted lesson library (newest first). Empty when offline. */
+export async function fetchLessonList(): Promise<LessonMeta[]> {
+  try {
+    const res = await fetch("/api/lessons");
+    if (res.ok) return (await res.json()) as LessonMeta[];
+  } catch {
+    /* no server */
+  }
+  return [];
 }

@@ -48,6 +48,8 @@ for (const [tab, file] of [
   ["Behavioral", "6-behavioral"],
   ["Data flow", "7-dataflow"],
   ["Contracts", "8-contract"],
+  ["Complexity", "14-complexity"],
+  ["Patterns", "15-patterns"],
   ["Overview", "9-overview"],
 ]) {
   await page.getByRole("tab", { name: tab }).click().catch((e) => errors.push(`${tab}: ${e.message}`));
@@ -84,6 +86,13 @@ for (let i = 0; i < 6; i++) {
   await page.waitForTimeout(450);
 }
 await page.screenshot({ path: `${OUT}/13-walk-scene2.png` });
+
+// lesson library dropdown
+await page.getByRole("button", { name: "Lesson library" }).click().catch((e) => errors.push("library: " + e.message));
+await page.waitForTimeout(400);
+tabShots.libraryOpen = (await page.locator("ol li").count()) > 0;
+await page.screenshot({ path: `${OUT}/16-library.png` });
+await page.mouse.click(400, 450).catch(() => {}); // close dropdown
 
 const darkBtn = page.getByRole("button", { name: /switch to (dark|light) mode/i });
 const darkBtnCount = await darkBtn.count();

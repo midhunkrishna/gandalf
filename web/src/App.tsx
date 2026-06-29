@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { Moon, Sun, GitBranch } from "lucide-react";
-import type { LessonBundle } from "@engine/core/schemas.ts";
+import type { LessonBundle, LessonMeta } from "@engine/core/schemas.ts";
 import { Button } from "@/ui/button.tsx";
 import { Badge } from "@/ui/badge.tsx";
 import { cn } from "@/lib/cn.ts";
 import { LessonView } from "@/lens/LessonView.tsx";
 import { DesignPreview } from "@/DesignPreview.tsx";
-import { fallbackLesson, fetchLesson } from "@/lib/loadLesson.ts";
+import { LessonLibrary } from "@/components/LessonLibrary.tsx";
+import { fallbackLesson, fetchLesson, fetchLessonList } from "@/lib/loadLesson.ts";
 
 type View = "lesson" | "tokens";
 
@@ -14,10 +15,23 @@ export function App() {
   const [dark, setDark] = useState(false);
   const [view, setView] = useState<View>("lesson");
   const [lesson, setLesson] = useState<LessonBundle>(fallbackLesson);
+  const [currentId, setCurrentId] = useState<string | null>(fallbackLesson.meta.id);
+  const [library, setLibrary] = useState<LessonMeta[]>([]);
 
   useEffect(() => {
-    fetchLesson().then(setLesson);
+    fetchLesson().then((l) => {
+      setLesson(l);
+      setCurrentId(l.meta.id);
+    });
+    fetchLessonList().then(setLibrary);
   }, []);
+
+  function selectLesson(id: string) {
+    fetchLesson(id).then((l) => {
+      setLesson(l);
+      setCurrentId(l.meta.id);
+    });
+  }
 
   function toggleDark() {
     const next = !dark;
@@ -34,6 +48,13 @@ export function App() {
           <Badge tone="primary" className="ml-1">preview</Badge>
         </div>
         <div className="flex items-center gap-2">
+          {view === "lesson" && (
+            <LessonLibrary
+              lessons={library.length ? library : [lesson.meta]}
+              currentId={currentId}
+              onSelect={selectLesson}
+            />
+          )}
           <div className="flex rounded-md border border-line p-0.5">
             {(["lesson", "tokens"] as const).map((v) => (
               <button
