@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { MotionConfig } from "framer-motion";
 import { Moon, Sun, GitBranch } from "lucide-react";
 import type { LessonBundle, LessonMeta } from "@engine/core/schemas.ts";
 import { Button } from "@/ui/button.tsx";
@@ -40,6 +41,7 @@ export function App() {
   }
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="flex h-screen flex-col overflow-hidden">
       <header className="flex shrink-0 items-center justify-between border-b border-line bg-bg px-6 py-3">
         <div className="flex items-center gap-2.5">
@@ -89,5 +91,6 @@ export function App() {
         </div>
       )}
     </div>
+    </MotionConfig>
   );
 }

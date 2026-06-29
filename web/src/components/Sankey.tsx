@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { sankey, sankeyLinkHorizontal } from "d3-sankey";
 import type { DataFlow } from "@engine/core/schemas.ts";
 
@@ -6,6 +7,8 @@ type SankeyData = NonNullable<DataFlow["sankey"]>;
 
 /** Quantitative flow between modules/functions (d3-sankey, themed). */
 export function Sankey({ data }: { data: SankeyData }) {
+  const reduce = useReducedMotion();
+  const animate = !reduce;
   const width = 720;
   const height = Math.max(160, data.nodes.length * 48);
 
@@ -34,13 +37,17 @@ export function Sankey({ data }: { data: SankeyData }) {
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ maxHeight: height }}>
       {graph.links.map((l, i) => (
-        <path
+        <motion.path
           key={i}
           d={linkPath(l) ?? undefined}
           fill="none"
           stroke="hsl(var(--primary))"
           strokeOpacity={0.22}
           strokeWidth={Math.max(1, l.width ?? 1)}
+          initial={animate ? { pathLength: 0 } : false}
+          whileInView={animate ? { pathLength: 1 } : undefined}
+          viewport={{ once: true, amount: 0.4 }}
+          transition={{ duration: 0.9, ease: [0, 0, 0.2, 1], delay: Math.min(i, 12) * 0.03 }}
         />
       ))}
       {graph.nodes.map((n, i) => {

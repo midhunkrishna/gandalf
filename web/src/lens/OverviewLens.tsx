@@ -1,5 +1,6 @@
 import type { LessonBundle } from "@engine/core/schemas.ts";
 import { Badge } from "@/ui/badge.tsx";
+import { Reveal } from "@/components/Reveal.tsx";
 import { statusTone } from "@/lib/concept.ts";
 
 const H3 = "text-xs font-semibold uppercase tracking-[0.12em] text-muted-ink";
@@ -25,15 +26,15 @@ export function OverviewLens({ lesson }: { lesson: LessonBundle }) {
       </header>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {stats.map(([k, v]) => (
-          <div key={k} className="rounded-lg border border-line bg-surface p-3">
+        {stats.map(([k, v], i) => (
+          <Reveal key={k} delay={i * 0.05} className="rounded-lg border border-line bg-surface p-3">
             <div className="text-xs text-muted-ink">{k}</div>
             <div className="font-display text-lg font-semibold text-ink">{v}</div>
-          </div>
+          </Reveal>
         ))}
       </div>
 
-      <section className="space-y-2">
+      <Reveal as="section" className="space-y-2">
         <h3 className={H3}>Changed files</h3>
         <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
           {changed.map((f, i) => (
@@ -49,10 +50,10 @@ export function OverviewLens({ lesson }: { lesson: LessonBundle }) {
             </li>
           ))}
         </ul>
-      </section>
+      </Reveal>
 
       {hotspots.length > 0 && (
-        <section className="space-y-2">
+        <Reveal as="section" className="space-y-2">
           <h3 className={H3}>
             Hotspots{" "}
             <span className="font-normal normal-case tracking-normal text-muted-ink">
@@ -73,7 +74,7 @@ export function OverviewLens({ lesson }: { lesson: LessonBundle }) {
               </li>
             ))}
           </ul>
-        </section>
+        </Reveal>
       )}
     </div>
   );

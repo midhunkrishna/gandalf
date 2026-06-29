@@ -1,14 +1,31 @@
 #!/usr/bin/env -S npx tsx
 import { Command } from "commander";
-import { resolve } from "node:path";
+import { spawn } from "node:child_process";
+import { dirname, join, resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { copyFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { repoRoot } from "../src/core/git.ts";
 import { generateLesson } from "../src/core/pipeline.ts";
 import {
   saveLesson,
   listLessons,
+  loadLesson,
   defaultLessonsDir,
 } from "../src/core/lesson.ts";
 import { startServer, webBuilt } from "../src/server/serve.ts";
+
+/** Run `vite build` (with injection env) from the gandalf project root. */
+function runViteBuild(projectRoot: string, env: Record<string, string>): Promise<void> {
+  return new Promise((res, rej) => {
+    const child = spawn("npx", ["vite", "build"], {
+      cwd: projectRoot,
+      env: { ...process.env, ...env },
+      stdio: "inherit",
+    });
+    child.on("error", rej);
+    child.on("close", (code) => (code === 0 ? res() : rej(new Error(`vite build exited ${code}`))));
+  });
+}
 
 const program = new Command();
 
@@ -87,10 +104,46 @@ program
 
 program
   .command("build")
-  .description("Export a self-contained static HTML lesson (Phase 4).")
-  .action(() => {
-    console.error("`gandalf build` arrives in Phase 4 (vite-plugin-singlefile export).");
-    process.exitCode = 1;
+  .description("Export a self-contained, offline static HTML lesson (vite-plugin-singlefile).")
+  .option("--lesson <id>", "lesson id to export (default: newest)")
+  .option("--cwd <dir>", "repository directory", process.cwd())
+  .option("--out-dir <dir>", "lessons directory")
+  .requiredOption("--out <file>", "output HTML file path")
+  .action(async (opts) => {
+    const cwd = await repoRoot(resolve(opts.cwd));
+    const lessonsDir = opts.outDir ? resolve(opts.outDir) : defaultLessonsDir(cwd);
+    const metas = await listLessons(lessonsDir);
+    if (!metas.length) {
+      console.error("No lessons to export. Run `gandalf generate` first.");
+      process.exitCode = 1;
+      return;
+    }
+    const id = opts.lesson ?? metas[0]!.id;
+    const lesson = await loadLesson(lessonsDir, id);
+
+    const projectRoot = resolve(import.meta.dirname, "..");
+    const stamp = Date.now();
+    const lessonFile = join(tmpdir(), `gandalf-build-${stamp}.json`);
+    const buildDir = join(tmpdir(), `gandalf-singlefile-${stamp}`);
+    await writeFile(lessonFile, JSON.stringify({ lesson, lessons: metas }));
+
+    process.stderr.write(`Building single-file export for ${id}…\n`);
+    try {
+      await runViteBuild(projectRoot, {
+        GANDALF_LESSON_FILE: lessonFile,
+        GANDALF_SINGLEFILE: "1",
+        GANDALF_OUT_DIR: buildDir,
+      });
+      const out = resolve(opts.out);
+      await mkdir(dirname(out), { recursive: true });
+      await copyFile(join(buildDir, "index.html"), out);
+      console.log(`Static lesson exported: ${out}`);
+      console.log(`  lesson: ${lesson.meta.title} [${id}]`);
+      console.log(`  open it directly in a browser — no server needed.`);
+    } finally {
+      await rm(lessonFile, { force: true }).catch(() => {});
+      await rm(buildDir, { recursive: true, force: true }).catch(() => {});
+    }
   });
 
 program.parseAsync(process.argv).catch((err) => {

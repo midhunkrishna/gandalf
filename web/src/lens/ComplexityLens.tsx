@@ -2,6 +2,7 @@ import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import type { LessonBundle } from "@engine/core/schemas.ts";
 import { SlopeChart } from "@/components/SlopeChart.tsx";
 import { Treemap } from "@/components/Treemap.tsx";
+import { Reveal } from "@/components/Reveal.tsx";
 
 const H3 = "text-xs font-semibold uppercase tracking-[0.12em] text-muted-ink";
 const base = (p: string) => p.split("/").pop() ?? p;
@@ -41,26 +42,32 @@ export function ComplexityLens({ lesson }: { lesson: LessonBundle }) {
       </header>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <DeltaCard label="Cyclomatic" value={c.scorecard.deltaCyclomatic} />
-        <DeltaCard label="Cognitive" value={c.scorecard.deltaCognitive} />
-        <DeltaCard label="Nesting" value={c.scorecard.deltaNesting} />
-        <DeltaCard label="LOC" value={c.scorecard.deltaLoc} />
+        {([
+          ["Cyclomatic", c.scorecard.deltaCyclomatic],
+          ["Cognitive", c.scorecard.deltaCognitive],
+          ["Nesting", c.scorecard.deltaNesting],
+          ["LOC", c.scorecard.deltaLoc],
+        ] as const).map(([label, value], i) => (
+          <Reveal key={label} delay={i * 0.05}>
+            <DeltaCard label={label} value={value} />
+          </Reveal>
+        ))}
       </div>
 
-      <section className="space-y-3">
+      <Reveal as="section" className="space-y-3">
         <h3 className={H3}>Per-function — cognitive (before → after)</h3>
         <SlopeChart data={c.perFunction} metric="cognitive" />
-      </section>
+      </Reveal>
 
       {hasCyclomatic && (
-        <section className="space-y-3">
+        <Reveal as="section" className="space-y-3">
           <h3 className={H3}>Per-function — cyclomatic (before → after)</h3>
           <SlopeChart data={c.perFunction} metric="cyclomatic" />
-        </section>
+        </Reveal>
       )}
 
       {c.hotspots.length > 0 && (
-        <section className="space-y-2">
+        <Reveal as="section" className="space-y-2">
           <h3 className={H3}>
             Hotspot map{" "}
             <span className="font-normal normal-case tracking-normal text-muted-ink">
@@ -70,11 +77,11 @@ export function ComplexityLens({ lesson }: { lesson: LessonBundle }) {
           <div className="rounded-lg border border-line bg-surface p-3">
             <Treemap hotspots={c.hotspots} />
           </div>
-        </section>
+        </Reveal>
       )}
 
       {c.coupling.length > 0 && (
-        <section className="space-y-2">
+        <Reveal as="section" className="space-y-2">
           <h3 className={H3}>
             Change coupling{" "}
             <span className="font-normal normal-case tracking-normal text-muted-ink">
@@ -93,7 +100,7 @@ export function ComplexityLens({ lesson }: { lesson: LessonBundle }) {
               </li>
             ))}
           </ul>
-        </section>
+        </Reveal>
       )}
     </div>
   );

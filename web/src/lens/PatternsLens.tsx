@@ -1,6 +1,7 @@
 import type { LessonBundle, PatternFinding } from "@engine/core/schemas.ts";
 import { Badge } from "@/ui/badge.tsx";
 import { AdrCard } from "@/components/AdrCard.tsx";
+import { Reveal } from "@/components/Reveal.tsx";
 
 const H3 = "text-xs font-semibold uppercase tracking-[0.12em] text-muted-ink";
 const base = (p: string) => p.split("/").pop() ?? p;
@@ -24,7 +25,7 @@ export function PatternsLens({ lesson }: { lesson: LessonBundle }) {
       {p.detected.length > 0 && (
         <section className="space-y-3">
           {p.detected.map((f, i) => (
-            <div key={i} className="rounded-lg border border-line bg-surface p-4">
+            <Reveal key={i} delay={Math.min(i, 5) * 0.05} className="rounded-lg border border-line bg-surface p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone={statusTone(f.status)}>{f.status}</Badge>
                 <span className="font-medium text-ink">{f.name}</span>
@@ -44,16 +45,16 @@ export function PatternsLens({ lesson }: { lesson: LessonBundle }) {
                   ))}
                 </div>
               )}
-            </div>
+            </Reveal>
           ))}
         </section>
       )}
 
       {p.adr && (
-        <section className="space-y-3">
+        <Reveal as="section" className="space-y-3">
           <h3 className={H3}>Architecture decision</h3>
           <AdrCard adr={p.adr} />
-        </section>
+        </Reveal>
       )}
     </div>
   );

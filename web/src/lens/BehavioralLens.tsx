@@ -2,6 +2,7 @@ import type { LessonBundle } from "@engine/core/schemas.ts";
 import { Badge } from "@/ui/badge.tsx";
 import { TraceCard } from "@/components/TraceCard.tsx";
 import { TieredExplanation } from "@/components/TieredExplanation.tsx";
+import { Reveal } from "@/components/Reveal.tsx";
 
 const H3 = "text-xs font-semibold uppercase tracking-[0.12em] text-muted-ink";
 
@@ -32,7 +33,9 @@ export function BehavioralLens({ lesson }: { lesson: LessonBundle }) {
           </h3>
           <div className="grid gap-4 lg:grid-cols-2">
             {b.traceCards.map((c, i) => (
-              <TraceCard key={i} card={c} />
+              <Reveal key={i} delay={i * 0.06}>
+                <TraceCard card={c} />
+              </Reveal>
             ))}
           </div>
         </section>
@@ -46,7 +49,7 @@ export function BehavioralLens({ lesson }: { lesson: LessonBundle }) {
       )}
 
       {b.ripple.length > 0 && (
-        <section className="space-y-2">
+        <Reveal as="section" className="space-y-2">
           <h3 className={H3}>What could break (ripple)</h3>
           <ul className="space-y-2">
             {b.ripple.map((r, i) => (
@@ -60,7 +63,7 @@ export function BehavioralLens({ lesson }: { lesson: LessonBundle }) {
               </li>
             ))}
           </ul>
-        </section>
+        </Reveal>
       )}
     </div>
   );

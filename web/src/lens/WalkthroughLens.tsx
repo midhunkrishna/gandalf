@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Lenis from "lenis";
+import Snap from "lenis/snap";
+import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import type { LessonBundle, FileChange } from "@engine/core/schemas.ts";
 import { CodeStage } from "@/components/CodeStage.tsx";
+import { Reveal } from "@/components/Reveal.tsx";
 import type { Focus } from "@/lib/shiki.ts";
 import { prefersReducedMotion } from "@/lib/reducedMotion.ts";
 import { cn } from "@/lib/cn.ts";
@@ -36,7 +39,15 @@ export function WalkthroughLens({ lesson }: { lesson: LessonBundle }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const stepRefs = useRef<Array<HTMLDivElement | null>>([]);
 
-  // Lenis smooth scroll on this lens's scroll container (skipped under reduced-motion).
+  // Parallax: the intro hero drifts up and fades as you scroll into the steps.
+  const reduce = useReducedMotion();
+  const { scrollY } = useScroll({ container: scrollRef });
+  const heroY = useTransform(scrollY, [0, 500], [0, -80]);
+  const heroOpacity = useTransform(scrollY, [0, 360], [1, 0.25]);
+
+  // Lenis smooth scroll + gentle proximity snap on this lens's scroll container
+  // (both skipped under reduced-motion). Proximity snap settles on the nearest scene
+  // boundary only once the user stops near it — it never seizes the scrollbar.
   useEffect(() => {
     if (prefersReducedMotion() || !scrollRef.current || !contentRef.current) return;
     const lenis = new Lenis({
@@ -51,8 +62,21 @@ export function WalkthroughLens({ lesson }: { lesson: LessonBundle }) {
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
+
+    const snap = new Snap(lenis, {
+      type: "proximity",
+      lerp: 0.1,
+      duration: 0.8,
+      distanceThreshold: "18%",
+    });
+    const removers = stepRefs.current
+      .filter((el): el is HTMLDivElement => Boolean(el))
+      .map((el) => snap.addElement(el, { align: "center" }));
+
     return () => {
       cancelAnimationFrame(raf);
+      removers.forEach((remove) => remove());
+      snap.destroy();
       lenis.destroy();
     };
   }, [scenes.length]);
@@ -78,7 +102,10 @@ export function WalkthroughLens({ lesson }: { lesson: LessonBundle }) {
   return (
     <div ref={scrollRef} className="h-full overflow-y-auto">
       <div ref={contentRef}>
-        <section className="mx-auto max-w-3xl px-8 pb-20 pt-16 text-center">
+        <motion.section
+          className="mx-auto max-w-3xl px-8 pb-20 pt-16 text-center"
+          style={reduce ? undefined : { y: heroY, opacity: heroOpacity }}
+        >
           <h2 className="font-display text-3xl leading-tight">{lesson.meta.title}</h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-muted-ink">
             {lesson.meta.hypothesis}
@@ -88,7 +115,7 @@ export function WalkthroughLens({ lesson }: { lesson: LessonBundle }) {
               Scroll to walk through the change <ChevronDown className="h-4 w-4 animate-bounce" />
             </div>
           )}
-        </section>
+        </motion.section>
 
         {scenes.length === 0 ? (
           <p className="mx-auto max-w-3xl px-8 pb-24 text-center text-sm text-muted-ink">
@@ -136,7 +163,7 @@ export function WalkthroughLens({ lesson }: { lesson: LessonBundle }) {
           </div>
         )}
 
-        <section className="mx-auto max-w-3xl px-8 py-24">
+        <Reveal as="section" className="mx-auto max-w-3xl px-8 py-24" y={24}>
           <div className="rounded-lg border border-line bg-surface p-6 text-center">
             <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-ink">
               In summary
@@ -145,7 +172,7 @@ export function WalkthroughLens({ lesson }: { lesson: LessonBundle }) {
               {lesson.behavioral.conditionalEquivalence}
             </p>
           </div>
-        </section>
+        </Reveal>
       </div>
     </div>
   );
