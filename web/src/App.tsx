@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { MotionConfig } from "framer-motion";
-import { Moon, Sun, GitBranch } from "lucide-react";
+import { Moon, Sun, GitBranch, Brain } from "lucide-react";
 import type { LessonBundle, LessonMeta } from "@engine/core/schemas.ts";
 import { Button } from "@/ui/button.tsx";
 import { Badge } from "@/ui/badge.tsx";
@@ -8,7 +8,9 @@ import { cn } from "@/lib/cn.ts";
 import { LessonView } from "@/lens/LessonView.tsx";
 import { DesignPreview } from "@/DesignPreview.tsx";
 import { LessonLibrary } from "@/components/LessonLibrary.tsx";
+import { ReviewSession } from "@/components/ReviewSession.tsx";
 import { fallbackLesson, fetchLesson, fetchLessonList } from "@/lib/loadLesson.ts";
+import { dueCount as countDue } from "@/lib/reviewStore.ts";
 
 type View = "lesson" | "tokens";
 
@@ -18,6 +20,8 @@ export function App() {
   const [lesson, setLesson] = useState<LessonBundle>(fallbackLesson);
   const [currentId, setCurrentId] = useState<string | null>(fallbackLesson.meta.id);
   const [library, setLibrary] = useState<LessonMeta[]>([]);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [dueN, setDueN] = useState(0);
 
   useEffect(() => {
     fetchLesson().then((l) => {
@@ -25,7 +29,13 @@ export function App() {
       setCurrentId(l.meta.id);
     });
     fetchLessonList().then(setLibrary);
+    setDueN(countDue());
   }, []);
+
+  function closeReview() {
+    setReviewOpen(false);
+    setDueN(countDue());
+  }
 
   function selectLesson(id: string) {
     fetchLesson(id).then((l) => {
@@ -51,11 +61,27 @@ export function App() {
         </div>
         <div className="flex items-center gap-2">
           {view === "lesson" && (
-            <LessonLibrary
-              lessons={library.length ? library : [lesson.meta]}
-              currentId={currentId}
-              onSelect={selectLesson}
-            />
+            <>
+              <button
+                onClick={() => setReviewOpen(true)}
+                aria-label={`Spaced review${dueN ? ` — ${dueN} due` : ""}`}
+                title="Spaced review of due recall questions"
+                className="inline-flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1 text-sm text-muted-ink transition-colors duration-fast hover:text-ink"
+              >
+                <Brain className="h-4 w-4" />
+                Review
+                {dueN > 0 && (
+                  <span className="ml-0.5 rounded-full bg-primary px-1.5 text-[0.7rem] font-medium text-primary-ink">
+                    {dueN}
+                  </span>
+                )}
+              </button>
+              <LessonLibrary
+                lessons={library.length ? library : [lesson.meta]}
+                currentId={currentId}
+                onSelect={selectLesson}
+              />
+            </>
           )}
           <div className="flex rounded-md border border-line p-0.5">
             {(["lesson", "tokens"] as const).map((v) => (
@@ -89,6 +115,10 @@ export function App() {
         <div className="flex-1 overflow-y-auto">
           <DesignPreview />
         </div>
+      )}
+
+      {reviewOpen && (
+        <ReviewSession lessons={library.length ? library : [lesson.meta]} onClose={closeReview} />
       )}
     </div>
     </MotionConfig>

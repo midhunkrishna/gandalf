@@ -246,6 +246,15 @@ export const TraceCard = z.object({
   /** Given-When-Then caption. */
   gwt: z.string(),
   safety: Safety,
+  /**
+   * Predict-then-reveal prompt: the reader guesses before `afterOutput` is shown.
+   * `distractors` = up to 2 plausible-but-wrong after-outputs → multiple choice;
+   * empty → free-text "think, then reveal". The correct answer is always `afterOutput`.
+   */
+  prediction: z
+    .object({ question: z.string(), distractors: z.array(z.string()).default([]) })
+    .nullable()
+    .default(null),
   /** Honesty flag: traces are reasoned from code, not executed. */
   illustrative: z.literal(true).default(true),
 });
@@ -270,6 +279,22 @@ export const Explanations = z.object({
   dataflow: TieredText,
 });
 export type Explanations = z.infer<typeof Explanations>;
+
+// ---------- retrieval practice (active recall) ----------
+/** A free-recall/cued question testing a durable takeaway, with a model answer + grounding. */
+export const RetrievalQuestion = z.object({
+  prompt: z.string(),
+  answer: z.string(),
+  /** Lens this question belongs to (behavioral / dependency / contract / dataflow / complexity / patterns). */
+  lens: z.string(),
+  evidence: z.array(EvidenceLine).default([]),
+});
+export type RetrievalQuestion = z.infer<typeof RetrievalQuestion>;
+
+export const Retrieval = z.object({
+  questions: z.array(RetrievalQuestion).default([]),
+});
+export type Retrieval = z.infer<typeof Retrieval>;
 
 // ---------- lesson meta + bundle ----------
 export const LessonMeta = z.object({
@@ -296,6 +321,8 @@ export const LessonBundle = z.object({
   patterns: Patterns,
   behavioral: Behavioral,
   explanations: Explanations,
+  // Optional so lessons generated before Phase 5 still parse.
+  retrieval: Retrieval.default({ questions: [] }),
 });
 export type LessonBundle = z.infer<typeof LessonBundle>;
 

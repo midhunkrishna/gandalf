@@ -1,7 +1,11 @@
 import type { LessonBundle } from "@engine/core/schemas.ts";
 import { Badge } from "@/ui/badge.tsx";
 import { TieredExplanation } from "@/components/TieredExplanation.tsx";
+import { PredictReveal } from "@/components/PredictReveal.tsx";
+import { Reveal } from "@/components/Reveal.tsx";
 import { safetyTone } from "@/lib/concept.ts";
+
+const SAFETIES = ["safe", "breaking", "unknown"] as const;
 
 export function ContractLens({ lesson }: { lesson: LessonBundle }) {
   return (
@@ -20,9 +24,8 @@ export function ContractLens({ lesson }: { lesson: LessonBundle }) {
       ) : (
         <div className="space-y-3">
           {lesson.contracts.map((c, i) => (
-            <div key={i} className="rounded-lg border border-line bg-surface p-4">
+            <Reveal key={i} delay={Math.min(i, 6) * 0.05} className="rounded-lg border border-line bg-surface p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge tone={safetyTone(c.safety)}>{c.safety}</Badge>
                 <span className="font-mono text-sm font-medium text-ink">{c.symbol}</span>
                 <span className="text-xs text-muted-ink">
                   {c.kind} · {c.changeType}
@@ -45,22 +48,34 @@ export function ContractLens({ lesson }: { lesson: LessonBundle }) {
                   )}
                 </div>
               )}
-              {(c.preconditionDelta || c.postconditionDelta) && (
-                <div className="mt-2 space-y-0.5 text-xs text-muted-ink">
-                  {c.preconditionDelta && (
-                    <div>
-                      <span className="font-medium text-ink">precondition:</span> {c.preconditionDelta}
-                    </div>
-                  )}
-                  {c.postconditionDelta && (
-                    <div>
-                      <span className="font-medium text-ink">postcondition:</span>{" "}
-                      {c.postconditionDelta}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+              <div className="mt-3">
+                <PredictReveal
+                  answer={c.safety}
+                  distractors={SAFETIES.filter((s) => s !== c.safety)}
+                  question="Given these signature changes, is this Safe or Breaking (Design-by-Contract)?"
+                >
+                  <div className="space-y-2">
+                    <Badge tone={safetyTone(c.safety)}>{c.safety}</Badge>
+                    {(c.preconditionDelta || c.postconditionDelta) && (
+                      <div className="space-y-0.5 text-xs text-muted-ink">
+                        {c.preconditionDelta && (
+                          <div>
+                            <span className="font-medium text-ink">precondition:</span>{" "}
+                            {c.preconditionDelta}
+                          </div>
+                        )}
+                        {c.postconditionDelta && (
+                          <div>
+                            <span className="font-medium text-ink">postcondition:</span>{" "}
+                            {c.postconditionDelta}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </PredictReveal>
+              </div>
+            </Reveal>
           ))}
         </div>
       )}

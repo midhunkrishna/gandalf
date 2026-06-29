@@ -5,3 +5,6 @@ coverage/
 *.local
 web/dist/
 web/node_modules/
+
+# generated lesson library (runtime data)
+.gandalf/

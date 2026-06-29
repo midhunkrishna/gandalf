@@ -60,6 +60,7 @@ Produce the behavioral analysis:
 - verdict: "behavioral" (observable behavior changed) vs "refactor-only" (behavior preserved).
 - conditionalEquivalence: a one-line "Unchanged except when …" statement.
 - Up to 3 Trace Cards: a concrete input, before vs after output, divergent state, a Given-When-Then caption, and safety. These are ILLUSTRATIVE — you reason from the code, you do NOT execute it (the illustrative flag is always true).
+- For EACH Trace Card, also include a "prediction" that lets the reader guess before the after-output is shown: a one-line "question" stem (e.g. "What does it return now?") and up to 2 "distractors" — plausible-but-wrong alternative after-outputs a careful reviewer might guess, grounded in the code. The correct answer is the card's afterOutput (do NOT repeat it in distractors). Leave distractors empty (the reader then free-recalls) if no credible wrong answer exists; set prediction to null only for trivial cards.
 - workedExample: an optional short worked example (or null).
 - ripple: affected callers per changed symbol.
 ${SYNTH_OUTRO}`;
@@ -78,6 +79,10 @@ ${SYNTH_OUTRO}`;
 
 const SYNTH_EXPLANATIONS_SYSTEM = `${SYNTH_INTRO}
 Produce per-lens tiered explanations for each lens (behavioral / dependency / contract / dataflow), at four altitudes where altitude changes the CONTENT, not just length: eli5 = analogy + one-line user impact; junior = the trace + named concepts; senior = control/state + edge cases; architect = module ripple + contract/invariant deltas.
+${SYNTH_OUTRO}`;
+
+const SYNTH_RETRIEVAL_SYSTEM = `${SYNTH_INTRO}
+Produce 3–5 retrieval-practice questions that test the DURABLE, important takeaways of this change (favor "why / when / which" reasoning over trivia or line-counting). For each: a "prompt" (the question), a concise model "answer", the "lens" it belongs to (one of: behavioral, dependency, contract, dataflow, complexity, patterns), and "evidence" lines (file + line) grounding the answer where applicable. The questions should be answerable from the lesson and worth remembering weeks later.
 ${SYNTH_OUTRO}`;
 
 export interface PerFileSummary {
@@ -124,6 +129,7 @@ export interface SynthesisPrompts {
   patterns: Built;
   behavioral: Built;
   explanations: Built;
+  retrieval: Built;
 }
 
 /** Build the six focused synthesis prompts that the pipeline fans out in parallel. */
@@ -141,5 +147,6 @@ export function synthesisPrompts(
     patterns: mk(SYNTH_PATTERNS_SYSTEM, "Produce the patterns analysis now."),
     behavioral: mk(SYNTH_BEHAVIORAL_SYSTEM, "Produce the behavioral analysis now."),
     explanations: mk(SYNTH_EXPLANATIONS_SYSTEM, "Produce the per-lens tiered explanations now."),
+    retrieval: mk(SYNTH_RETRIEVAL_SYSTEM, "Produce the retrieval-practice questions now."),
   };
 }

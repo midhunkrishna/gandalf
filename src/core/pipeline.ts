@@ -19,6 +19,7 @@ import {
   Patterns,
   Behavioral,
   Explanations,
+  Retrieval,
   LessonBundle,
   type FileChange,
   type Complexity,
@@ -203,7 +204,7 @@ export async function generateLesson(opts: GenerateOptions): Promise<LessonBundl
     cognitive: cognitiveByFile.get(f.path) ?? [],
   }));
 
-  log("Synthesizing cross-cutting lesson with claude -p (6 focused passes)…");
+  log("Synthesizing cross-cutting lesson with claude -p (7 focused passes)…");
   const prompts = synthesisPrompts(summaries, evidenceSummary(ev), intent);
   const synthModel = opts.modelSynth ?? "opus";
   const synthOpts = (built: Built, label: string): ClaudeOptions => ({
@@ -217,13 +218,14 @@ export async function generateLesson(opts: GenerateOptions): Promise<LessonBundl
   // The per-file passes above already warmed the shared prompt-prefix cache, so the
   // synthesis passes fan out concurrently as cache-reads. Each is small + focused, so
   // wall-clock ≈ the slowest single pass instead of one ~5-min monolith.
-  const [narrative, graph, dataflow, patterns, behavioral, explanations] = await Promise.all([
+  const [narrative, graph, dataflow, patterns, behavioral, explanations, retrieval] = await Promise.all([
     claudeStructured(SynthNarrative, synthOpts(prompts.narrative, "synth:narrative")),
     claudeStructured(ModuleGraphDelta, synthOpts(prompts.graph, "synth:graph")),
     claudeStructured(DataFlow, synthOpts(prompts.dataflow, "synth:dataflow")),
     claudeStructured(Patterns, synthOpts(prompts.patterns, "synth:patterns")),
     claudeStructured(Behavioral, synthOpts(prompts.behavioral, "synth:behavioral")),
     claudeStructured(Explanations, synthOpts(prompts.explanations, "synth:explanations")),
+    claudeStructured(Retrieval, synthOpts(prompts.retrieval, "synth:retrieval")),
   ]);
 
   const complexity = assembleComplexity(analyzable, cognitiveByFile, ev);
@@ -252,6 +254,7 @@ export async function generateLesson(opts: GenerateOptions): Promise<LessonBundl
     patterns,
     behavioral,
     explanations,
+    retrieval,
   };
 
   return LessonBundle.parse(bundle);

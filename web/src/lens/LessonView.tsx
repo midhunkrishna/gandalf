@@ -5,7 +5,9 @@ import type { LessonBundle } from "@engine/core/schemas.ts";
 import { Badge } from "@/ui/badge.tsx";
 import { cn } from "@/lib/cn.ts";
 import { DepthProvider } from "@/state/depth.tsx";
+import { QuizModeProvider } from "@/lib/quizMode.tsx";
 import { DepthSelector } from "@/components/DepthSelector.tsx";
+import { QuizToggle } from "@/components/QuizToggle.tsx";
 import { OverviewLens } from "@/lens/OverviewLens.tsx";
 import { DependencyLens } from "@/lens/DependencyLens.tsx";
 import { BehavioralLens } from "@/lens/BehavioralLens.tsx";
@@ -13,6 +15,7 @@ import { ContractLens } from "@/lens/ContractLens.tsx";
 import { DataFlowLens } from "@/lens/DataFlowLens.tsx";
 import { ComplexityLens } from "@/lens/ComplexityLens.tsx";
 import { PatternsLens } from "@/lens/PatternsLens.tsx";
+import { RecallPanel } from "@/components/RecallPanel.tsx";
 
 // Lazy-loaded: pulls in Shiki + Lenis only when the walkthrough is opened.
 const WalkthroughLens = lazy(() =>
@@ -28,6 +31,7 @@ const LENSES: Array<[string, string]> = [
   ["dataflow", "Data flow"],
   ["complexity", "Complexity"],
   ["patterns", "Patterns"],
+  ["recall", "Recall"],
 ];
 
 const triggerCls = cn(
@@ -38,6 +42,7 @@ const triggerCls = cn(
 export function LessonView({ lesson }: { lesson: LessonBundle }) {
   return (
     <DepthProvider>
+      <QuizModeProvider>
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="border-b border-line bg-surface/40 px-6 py-4">
           <div className="flex flex-wrap items-center gap-2.5">
@@ -63,7 +68,10 @@ export function LessonView({ lesson }: { lesson: LessonBundle }) {
                 </Tabs.Trigger>
               ))}
             </Tabs.List>
-            <DepthSelector />
+            <div className="flex items-center gap-3">
+              <QuizToggle />
+              <DepthSelector />
+            </div>
           </div>
 
           <Tabs.Content value="overview" className="min-h-0 flex-1 overflow-y-auto outline-none">
@@ -98,8 +106,12 @@ export function LessonView({ lesson }: { lesson: LessonBundle }) {
           <Tabs.Content value="patterns" className="min-h-0 flex-1 overflow-y-auto outline-none">
             <PatternsLens lesson={lesson} />
           </Tabs.Content>
+          <Tabs.Content value="recall" className="min-h-0 flex-1 overflow-y-auto outline-none">
+            <RecallPanel lesson={lesson} />
+          </Tabs.Content>
         </Tabs.Root>
       </div>
+      </QuizModeProvider>
     </DepthProvider>
   );
 }
