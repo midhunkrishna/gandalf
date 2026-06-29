@@ -25,11 +25,32 @@ const LEGEND: Array<[string, string]> = [
 
 export function LessonView({ lesson }: { lesson: LessonBundle }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [sidebarWidth, setSidebarWidth] = useState(460);
   const file = useMemo(() => fileForNode(lesson, selectedId), [lesson, selectedId]);
   const contracts = useMemo(
     () => (file ? lesson.contracts.filter((c) => c.file === file.path) : []),
     [lesson, file],
   );
+
+  function startDrag(e: React.MouseEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = sidebarWidth;
+    const onMove = (ev: MouseEvent) => {
+      const next = Math.min(Math.max(startW + (startX - ev.clientX), 360), window.innerWidth - 360);
+      setSidebarWidth(next);
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -61,7 +82,18 @@ export function LessonView({ lesson }: { lesson: LessonBundle }) {
           </div>
         </div>
 
-        <aside className="w-[460px] shrink-0 overflow-y-auto border-l border-line bg-bg p-5">
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize panel"
+          onMouseDown={startDrag}
+          className="w-1.5 shrink-0 cursor-col-resize bg-line/50 transition-colors duration-fast hover:bg-primary/50"
+        />
+
+        <aside
+          style={{ width: sidebarWidth }}
+          className="shrink-0 overflow-y-auto border-l border-line bg-bg p-5"
+        >
           {!file ? (
             <div className="space-y-5">
               <div className="rounded-md border border-dashed border-line bg-surface/50 p-4 text-sm text-muted-ink">
@@ -111,7 +143,7 @@ export function LessonView({ lesson }: { lesson: LessonBundle }) {
                 <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-ink">
                   Diff
                 </h2>
-                <CodePanel file={file} />
+                <CodePanel file={file} wide={sidebarWidth >= 720} />
               </section>
             </div>
           )}

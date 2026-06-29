@@ -116,3 +116,33 @@
     }
   }
 }
+
+/*
+ * diff2html, themed to the design tokens and contained.
+ * Scoped under .gandalf-diff so these override diff2html's own stylesheet by specificity.
+ */
+.gandalf-diff .d2h-wrapper { background: transparent; }
+.gandalf-diff .d2h-file-list-wrapper,
+.gandalf-diff .d2h-file-header { display: none; }
+.gandalf-diff .d2h-file-wrapper { margin: 0; border: 0; border-radius: 0; }
+.gandalf-diff .d2h-diff-table { font-family: var(--font-mono); font-size: 0.72rem; }
+.gandalf-diff td { border-color: hsl(var(--line)); }
+.gandalf-diff .d2h-code-linenumber,
+.gandalf-diff .d2h-code-side-linenumber {
+  background: hsl(var(--surface-2));
+  color: hsl(var(--muted-ink));
+  border-color: hsl(var(--line));
+}
+.gandalf-diff .d2h-info {
+  background: hsl(var(--surface-2));
+  color: hsl(var(--muted-ink));
+}
+.gandalf-diff .d2h-ins { background: hsl(var(--added) / 0.13); }
+.gandalf-diff .d2h-del { background: hsl(var(--removed) / 0.13); }
+.gandalf-diff .d2h-ins ins,
+.gandalf-diff .d2h-code-line ins { background: hsl(var(--added) / 0.28); text-decoration: none; }
+.gandalf-diff .d2h-del del,
+.gandalf-diff .d2h-code-line del { background: hsl(var(--removed) / 0.28); text-decoration: none; }
+.gandalf-diff .d2h-emptyplaceholder,
+.gandalf-diff .d2h-code-side-emptyplaceholder { background: hsl(var(--muted) / 0.4); border-color: hsl(var(--line)); }
+.gandalf-diff .d2h-code-line-ctn { color: hsl(var(--ink)); }

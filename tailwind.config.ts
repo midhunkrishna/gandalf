@@ -1,13 +1,20 @@
 import type { Config } from "tailwindcss";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const here = dirname(fileURLToPath(import.meta.url));
 
 /**
  * The design system is defined as CSS variables in web/src/styles/index.css
  * (warm-editorial identity, :root + .dark). Tailwind only surfaces those tokens
  * as utilities — there are no raw hex values here. Constraint + consistency.
+ *
+ * Content globs are absolute (relative to this config) so utilities generate
+ * regardless of the cwd Vite/Tailwind is launched from.
  */
 const config: Config = {
   darkMode: "class",
-  content: ["./web/index.html", "./web/src/**/*.{ts,tsx}"],
+  content: [join(here, "web/index.html"), join(here, "web/src/**/*.{ts,tsx}")],
   theme: {
     extend: {
       colors: {

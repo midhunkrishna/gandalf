@@ -48,7 +48,13 @@ export function App() {
               </button>
             ))}
           </div>
-          <Button variant="secondary" size="sm" onClick={toggleDark}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={toggleDark}
+            aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+            title={dark ? "Light mode" : "Dark mode"}
+          >
             {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
         </div>
