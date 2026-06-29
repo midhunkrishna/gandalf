@@ -7,6 +7,7 @@ const badge = cva(
     variants: {
       tone: {
         neutral: "border-line bg-surface-2 text-muted-ink",
+        unchanged: "border-line bg-surface-2 text-muted-ink",
         added: "border-added/30 bg-added/10 text-added",
         removed: "border-removed/30 bg-removed/10 text-removed",
         modified: "border-modified/30 bg-modified/10 text-modified",

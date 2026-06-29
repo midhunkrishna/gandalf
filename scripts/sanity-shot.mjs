@@ -42,6 +42,30 @@ if (box) {
   await page.screenshot({ path: `${OUT}/5-wide.png` });
 }
 
+// walk the lens tabs
+const tabShots = {};
+for (const [tab, file] of [
+  ["Behavioral", "6-behavioral"],
+  ["Data flow", "7-dataflow"],
+  ["Contracts", "8-contract"],
+  ["Overview", "9-overview"],
+]) {
+  await page.getByRole("tab", { name: tab }).click().catch((e) => errors.push(`${tab}: ${e.message}`));
+  await page.waitForTimeout(1100);
+  await page.screenshot({ path: `${OUT}/${file}.png` });
+}
+tabShots.tabCount = await page.getByRole("tab").count();
+
+// depth selector: switch to Architect on the Behavioral lens and confirm the prose changes
+await page.getByRole("tab", { name: "Behavioral" }).click().catch(() => {});
+await page.waitForTimeout(500);
+const juniorText = await page.locator("main p").first().innerText().catch(() => "");
+await page.getByRole("radio", { name: "Architect" }).click().catch((e) => errors.push("depth: " + e.message));
+await page.waitForTimeout(400);
+const architectText = await page.locator("main p").first().innerText().catch(() => "");
+tabShots.depthChanged = juniorText !== architectText;
+await page.screenshot({ path: `${OUT}/10-architect.png` });
+
 const darkBtn = page.getByRole("button", { name: /switch to (dark|light) mode/i });
 const darkBtnCount = await darkBtn.count();
 await darkBtn.first().click().catch((e) => errors.push("dark click: " + e.message));
@@ -56,5 +80,5 @@ await page.getByRole("button", { name: "tokens" }).click().catch(() => {});
 await page.waitForTimeout(500);
 await page.screenshot({ path: `${OUT}/4-tokens.png`, fullPage: true });
 
-console.log(JSON.stringify({ nodeCount, hasDiff, sideBySide, darkBtnCount, darkState, errors }, null, 2));
+console.log(JSON.stringify({ nodeCount, hasDiff, sideBySide, tabShots, darkBtnCount, darkState, errors }, null, 2));
 await browser.close();
