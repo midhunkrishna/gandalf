@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { highlightFocus, type Focus } from "@/lib/shiki.ts";
 import { prefersReducedMotion } from "@/lib/reducedMotion.ts";
+import { useIsDark } from "@/lib/useIsDark.ts";
 
 /** The pinned code panel of the walkthrough: Shiki highlight + focus-and-dim + auto-scroll to focus. */
 export function CodeStage({
@@ -14,15 +15,15 @@ export function CodeStage({
 }) {
   const [html, setHtml] = useState("");
   const ref = useRef<HTMLDivElement>(null);
+  const dark = useIsDark();
 
   useEffect(() => {
     let cancelled = false;
-    const dark = document.documentElement.classList.contains("dark");
     highlightFocus(code, language, focus, dark).then((h) => !cancelled && setHtml(h));
     return () => {
       cancelled = true;
     };
-  }, [code, language, focus]);
+  }, [code, language, focus, dark]);
 
   useEffect(() => {
     const container = ref.current;

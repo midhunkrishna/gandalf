@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import mermaid from "mermaid";
+import { useIsDark } from "@/lib/useIsDark.ts";
 
 let counter = 0;
 
@@ -7,10 +8,10 @@ let counter = 0;
 export function MermaidDiagram({ code }: { code: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [error, setError] = useState(false);
+  const isDark = useIsDark();
 
   useEffect(() => {
     let cancelled = false;
-    const isDark = document.documentElement.classList.contains("dark");
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: "strict",
@@ -28,7 +29,7 @@ export function MermaidDiagram({ code }: { code: string }) {
     return () => {
       cancelled = true;
     };
-  }, [code]);
+  }, [code, isDark]);
 
   if (error) {
     return (
