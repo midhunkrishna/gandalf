@@ -6,6 +6,8 @@ A raw `git diff` shows *what* changed line-by-line but loses the **behavioral "w
 
 Every metric is computed deterministically in Node and fed to Claude as ground truth (Claude interprets, never invents); every judgment is anchored to quoted lines.
 
+> The techniques behind each format — and the program-comprehension, multimedia-learning, and retention research backing them — are documented in **[docs/RESEARCH.md](./docs/RESEARCH.md)**.
+
 ---
 
 ## 1. Installation
