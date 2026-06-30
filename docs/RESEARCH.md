@@ -197,4 +197,28 @@ This is gandalf's most evidence-driven layer. A multimedia explanation that's on
 - Ausubel, D. (1960). *Advance organizers.*
 - Bjork, R. (1994). *Desirable difficulties.*
 
-> A fuller learning-science audit of which mechanisms gandalf already uses and which to add next is summarized in the project plan (Phase 5 spec).
+---
+
+## Appendix — learning-science coverage at a glance
+
+Where each evidence-based mechanism stands in gandalf today, and what's still a candidate addition.
+
+| Mechanism | Status | Where in gandalf |
+|---|---|---|
+| Dual coding / multimedia | ✅ used | concept hues + prose-with-diagram in every lens (§3) |
+| Cognitive-load design (segmenting · signaling · split-attention) | ✅ used | one-idea scenes, focus-and-dim beacons, sticky code beside prose (§3, §9) |
+| Worked examples | ✅ used | Trace Cards with GWT captions (§4) |
+| Advance organizers | ✅ used | TL;DR triad + Overview lens precede the detail (§1, §2) |
+| Retrieval practice (testing effect) | ✅ used | Recall tab — answer-from-memory → reveal (§8) |
+| Prediction / pretesting | ✅ used | predict-then-reveal on Trace Cards + contract verdicts (§4, §8) |
+| Generation effect | ✅ used | free-text "think, then reveal" path (§8) |
+| Spaced / distributed practice | ✅ used | Leitner schedule + header **Review** queue across the library (§8) |
+| Contrasting cases | ◐ partial | ADR "Considered Options" + before↔after panels are *shown* (not yet an invent-first task) |
+| Concreteness fading | ◐ partial | ELI5→Architect depth ladder (user-selected, not a guided fade) |
+| Elaborative interrogation | ◐ partial | the "why" is foregrounded but *supplied*, not *elicited* |
+| Self-explanation | ○ candidate | e.g. prompt "explain in your own words why this is Safe/Breaking" |
+| Interleaving · worked→completion fading | ○ candidate | mix problem types / fade scaffolding across a session |
+
+*Legend:* ✅ used · ◐ partially used · ○ evidenced candidate for a future iteration.
+
+The two highest-impact additions when gandalf was still fully passive — **predict-then-reveal** and **retrieval + spacing** — have since shipped (the ✅ rows above); the remaining ◐/○ rows mark where the next evidence-backed gains lie (self-explanation prompts rank highest among them — Bisra et al. 2018, *g*≈0.55).
