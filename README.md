@@ -37,13 +37,14 @@ Confirm Claude Code is ready:
 claude --version         # should print a version; if not, install + log in to Claude Code first
 ```
 
-(Optional) expose a global `gandalf` command:
+(Recommended) install `gandalf` as a global command — this builds the viewer **and** drops a launcher on your `PATH`:
 
 ```bash
-npm link                 # then: gandalf --help
+./scripts/install.sh                       # installs `gandalf` to ~/.local/bin
+GANDALF_BIN_DIR=/usr/local/bin ./scripts/install.sh   # …or elsewhere
 ```
 
-Throughout this README, `npm run gandalf -- <cmd>` and `gandalf <cmd>` are interchangeable.
+The launcher resolves Node itself (handy with `mise`/`nvm`), so `gandalf` works from **any directory** — including the non-interactive shells used by automation. Throughout this README, `npm run gandalf -- <cmd>` and `gandalf <cmd>` are interchangeable.
 
 ---
 
