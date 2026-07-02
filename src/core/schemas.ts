@@ -365,17 +365,3 @@ export const SynthNarrative = z.object({
   summary: z.string(),
 });
 export type SynthNarrative = z.infer<typeof SynthNarrative>;
-
-/** Legacy monolithic synthesis shape — retained for reference; pipeline now fans out the passes above. */
-export const SynthesisResult = z.object({
-  title: z.string(),
-  hypothesis: z.string(),
-  summary: z.string(),
-  verdict: Verdict,
-  graph: ModuleGraphDelta,
-  dataflow: DataFlow,
-  patterns: Patterns,
-  behavioral: Behavioral,
-  explanations: Explanations,
-});
-export type SynthesisResult = z.infer<typeof SynthesisResult>;

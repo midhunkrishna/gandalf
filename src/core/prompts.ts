@@ -67,6 +67,8 @@ ${SYNTH_OUTRO}`;
 
 const SYNTH_GRAPH_SYSTEM = `${SYNTH_INTRO}
 Produce a module dependency graph delta: nodes (with status) and edges (kind: imports/conforms/uses/injects, with status). rippleTargets = modules likely needing a corresponding change — informed by the change-coupling evidence (files that historically change together).
+IMPORTANT: each node's "module" field MUST be one of the CANONICAL MODULES listed in the context — the viewer joins nodes to files on these exact strings. For modules untouched by the diff (unchanged context nodes), use the same taxonomy (e.g. "Core/RenderEngine", "App").
+rippleTargets entries MUST be exact node ids or canonical module values — bare identifiers, no prose or parenthetical reasoning (the viewer matches them literally to highlight nodes).
 ${SYNTH_OUTRO}`;
 
 const SYNTH_DATAFLOW_SYSTEM = `${SYNTH_INTRO}
@@ -99,6 +101,7 @@ function synthBody(
   evidenceSummary: string,
   intent: string | null,
 ): string {
+  const modules = [...new Set(summaries.map((s) => s.module))].sort();
   const files = summaries
     .map((s) => {
       const contracts = s.contracts
@@ -118,6 +121,9 @@ ${intent ?? "(no matching ticket)"}
 DETERMINISTIC EVIDENCE SUMMARY:
 ${evidenceSummary}
 
+CANONICAL MODULES touched by this diff (graph nodes must use these exact "module" values):
+${modules.map((m) => `- ${m}`).join("\n")}
+
 PER-FILE FINDINGS:
 ${files}`;
 }
@@ -132,7 +138,7 @@ export interface SynthesisPrompts {
   retrieval: Built;
 }
 
-/** Build the six focused synthesis prompts that the pipeline fans out in parallel. */
+/** Build the seven focused synthesis prompts that the pipeline fans out in parallel. */
 export function synthesisPrompts(
   summaries: PerFileSummary[],
   evidenceSummary: string,

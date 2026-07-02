@@ -13,6 +13,7 @@ import {
   defaultLessonsDir,
 } from "../src/core/lesson.ts";
 import { startServer, webBuilt } from "../src/server/serve.ts";
+import { validateLesson, formatIssues } from "../src/core/validate.ts";
 
 /** Run `vite build` (with injection env) from the gandalf project root. */
 function runViteBuild(projectRoot: string, env: Record<string, string>): Promise<void> {
@@ -83,6 +84,37 @@ program
       console.log(`${m.createdAt}  ${m.id}`);
       console.log(`    ${m.title}  [${m.verdict}${m.breakingCount ? `, ${m.breakingCount} breaking` : ""}]`);
     }
+  });
+
+program
+  .command("doctor")
+  .description("Cross-section integrity check of persisted lessons (graph↔files joins, evidence refs, …).")
+  .option("--lesson <id>", "check one lesson (default: all)")
+  .option("--cwd <dir>", "repository directory", process.cwd())
+  .option("--out-dir <dir>", "lessons directory")
+  .action(async (opts) => {
+    const cwd = await repoRoot(resolve(opts.cwd));
+    const lessonsDir = opts.outDir ? resolve(opts.outDir) : defaultLessonsDir(cwd);
+    const metas = await listLessons(lessonsDir);
+    const targets = opts.lesson ? metas.filter((m) => m.id === opts.lesson) : metas;
+    if (!targets.length) {
+      console.log(opts.lesson ? `No lesson "${opts.lesson}".` : "No lessons yet.");
+      return;
+    }
+    let errors = 0;
+    for (const m of targets) {
+      const lesson = await loadLesson(lessonsDir, m.id);
+      const issues = validateLesson(lesson);
+      errors += issues.filter((i) => i.severity === "error").length;
+      console.log(`${m.id}`);
+      console.log(
+        formatIssues(issues)
+          .split("\n")
+          .map((l) => `  ${l}`)
+          .join("\n"),
+      );
+    }
+    if (errors > 0) process.exitCode = 1;
   });
 
 program

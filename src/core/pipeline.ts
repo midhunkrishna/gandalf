@@ -11,6 +11,7 @@ import { classifyPath, isFormattingOnly } from "./noise.ts";
 import { loadTickets, matchTicket, ticketIntent } from "./tickets.ts";
 import { claudeStructured, type ClaudeOptions, type ModelAlias } from "./claude.ts";
 import { filePassPrompt, synthesisPrompts, type Built, type PerFileSummary } from "./prompts.ts";
+import { validateLesson, formatIssues } from "./validate.ts";
 import {
   FilePassResult,
   SynthNarrative,
@@ -80,18 +81,22 @@ function assembleComplexity(
   for (const f of files) {
     const cog = cognitiveByFile.get(f.path) ?? [];
     const fm = ev.fileMetrics[f.path];
+    const fmBefore = ev.fileMetricsBefore[f.path];
     for (const c of cog) {
-      const afterFn = fm?.functions.find((x) => x.symbol === c.symbol || x.symbol.endsWith(c.symbol));
+      const match = (x: { symbol: string }) => x.symbol === c.symbol || x.symbol.endsWith(c.symbol);
+      const afterFn = fm?.functions.find(match);
+      const beforeFn = fmBefore?.functions.find(match);
       perFunction.push({
         file: f.path,
         symbol: c.symbol,
-        cyclomaticBefore: null,
+        cyclomaticBefore: beforeFn ? beforeFn.cyclomatic : null,
         cyclomaticAfter: afterFn ? afterFn.cyclomatic : null,
         cognitiveBefore: c.cognitiveBefore,
         cognitiveAfter: c.cognitiveAfter,
+        // lizard doesn't measure nesting depth — left null rather than faked.
         nestingBefore: null,
         nestingAfter: null,
-        locBefore: null,
+        locBefore: beforeFn ? beforeFn.nloc : null,
         locAfter: afterFn ? afterFn.nloc : null,
       });
     }
@@ -155,7 +160,7 @@ export async function generateLesson(opts: GenerateOptions): Promise<LessonBundl
   log("Computing deterministic evidence bundle…");
   const ev = await buildEvidence({
     cwd,
-    changed: files.map((f) => ({ path: f.path, afterBlob: f.afterBlob })),
+    changed: files.map((f) => ({ path: f.path, afterBlob: f.afterBlob, beforeBlob: f.beforeBlob })),
   });
 
   // Per-file Claude passes (skip collapsed files).
@@ -181,13 +186,27 @@ export async function generateLesson(opts: GenerateOptions): Promise<LessonBundl
     contracts.push(...res.contracts);
     log(`  ✓ ${f.path}`);
   };
+  // A failed per-file pass must not sink the whole (multi-minute, usage-burning)
+  // run: degrade that file to a collapsed TLDR and keep going.
+  const analyzeSafe = async (f: FileChange) => {
+    try {
+      await analyzeOne(f);
+    } catch (e) {
+      f.tldr = {
+        before: "Per-file analysis failed — diff shown without teaching annotations.",
+        now: "Re-run `gandalf generate` to retry this file.",
+        behaviorChanged: "Unknown.",
+      };
+      log(`  ✗ ${f.path} — ${e instanceof Error ? e.message : e}`);
+    }
+  };
   // Warm-start fan-out: every `claude -p` shares one large cacheable prompt prefix
   // (the Claude Code preamble + tool schemas). Run the FIRST file alone so that
   // prefix is written to the cache once, then fan out the rest as cache-reads —
   // avoids N concurrent calls all paying the cache-creation penalty.
   if (analyzable.length > 0) {
-    await analyzeOne(analyzable[0]!);
-    await mapLimit(analyzable.slice(1), concurrency, (f) => analyzeOne(f));
+    await analyzeSafe(analyzable[0]!);
+    await mapLimit(analyzable.slice(1), concurrency, (f) => analyzeSafe(f));
   }
 
   // ticket overlay
@@ -218,7 +237,11 @@ export async function generateLesson(opts: GenerateOptions): Promise<LessonBundl
   // The per-file passes above already warmed the shared prompt-prefix cache, so the
   // synthesis passes fan out concurrently as cache-reads. Each is small + focused, so
   // wall-clock ≈ the slowest single pass instead of one ~5-min monolith.
-  const [narrative, graph, dataflow, patterns, behavioral, explanations, retrieval] = await Promise.all([
+  //
+  // Failure policy: narrative + behavioral are load-bearing (title, verdict) and still
+  // fail the run; every other pass degrades to a placeholder section with a warning so
+  // one flaky call can't sink the lesson.
+  const settled = await Promise.allSettled([
     claudeStructured(SynthNarrative, synthOpts(prompts.narrative, "synth:narrative")),
     claudeStructured(ModuleGraphDelta, synthOpts(prompts.graph, "synth:graph")),
     claudeStructured(DataFlow, synthOpts(prompts.dataflow, "synth:dataflow")),
@@ -227,6 +250,60 @@ export async function generateLesson(opts: GenerateOptions): Promise<LessonBundl
     claudeStructured(Explanations, synthOpts(prompts.explanations, "synth:explanations")),
     claudeStructured(Retrieval, synthOpts(prompts.retrieval, "synth:retrieval")),
   ]);
+  const required = <T,>(r: PromiseSettledResult<T>, label: string): T => {
+    if (r.status === "rejected") throw new Error(`${label} synthesis failed: ${r.reason}`);
+    return r.value;
+  };
+  const optional = <T,>(r: PromiseSettledResult<T>, label: string, fallback: T): T => {
+    if (r.status === "rejected") {
+      log(`  ⚠ ${label} synthesis failed — writing a placeholder section (${r.reason})`);
+      return fallback;
+    }
+    return r.value;
+  };
+  const narrative = required(settled[0], "narrative");
+  const behavioral = required(settled[4], "behavioral");
+  const dataflow = optional(settled[2], "dataflow", {
+    mermaid: "",
+    sankey: null,
+    narrative: { before: "(dataflow synthesis failed — regenerate)", after: "" },
+  });
+  const patterns = optional(settled[3], "patterns", { detected: [], adr: null });
+  const unavailable = "(explanation unavailable — this synthesis pass failed; regenerate the lesson)";
+  const explanations = optional(settled[5], "explanations", {
+    behavioral: { eli5: unavailable, junior: unavailable, senior: unavailable, architect: unavailable },
+    dependency: { eli5: unavailable, junior: unavailable, senior: unavailable, architect: unavailable },
+    contract: { eli5: unavailable, junior: unavailable, senior: unavailable, architect: unavailable },
+    dataflow: { eli5: unavailable, junior: unavailable, senior: unavailable, architect: unavailable },
+  });
+  const retrieval = optional(settled[6], "retrieval", { questions: [] });
+  // Graph fallback: a deterministic module graph from the diff (no edges beats no lens).
+  const graphRaw = optional(settled[1], "graph", {
+    nodes: [...new Set(analyzable.map((f) => f.module))].map((m) => ({
+      id: m,
+      module: m,
+      status: "modified" as const,
+      kind: "module" as const,
+    })),
+    edges: [],
+    rippleTargets: [],
+  });
+  // Canonicalize LLM-chosen node modules onto the deterministic taxonomy the viewer joins on.
+  const canonical = new Set(files.map((f) => f.module));
+  const nodes = graphRaw.nodes.map((n) =>
+    canonical.has(n.module) ? n : { ...n, module: normalizeModule(n.module) },
+  );
+  // Ripple targets must literally match a node id/module to light its halo; the model
+  // sometimes emits prose ("Core/X (because …)") — reduce each to its leading path token.
+  const nodeKeys = new Set(nodes.flatMap((n) => [n.id, n.module]));
+  const rippleTargets = graphRaw.rippleTargets.map((t) => {
+    if (nodeKeys.has(t)) return t;
+    const head = t.split(/[\s(—]/, 1)[0] ?? t;
+    if (nodeKeys.has(head)) return head;
+    const norm = normalizeModule(head);
+    return nodeKeys.has(norm) ? norm : t;
+  });
+  const graph = { ...graphRaw, nodes, rippleTargets };
 
   const complexity = assembleComplexity(analyzable, cognitiveByFile, ev);
   const breakingCount = contracts.filter((c) => c.safety === "breaking").length;
@@ -257,7 +334,18 @@ export async function generateLesson(opts: GenerateOptions): Promise<LessonBundl
     retrieval,
   };
 
-  return LessonBundle.parse(bundle);
+  const lesson = LessonBundle.parse(bundle);
+
+  // Cross-section integrity report (non-fatal): catches graph↔files drift & friends.
+  const issues = validateLesson(lesson);
+  if (issues.length) {
+    log(`Integrity check: ${issues.length} issue(s)`);
+    log(formatIssues(issues).split("\n").map((l) => `  ${l}`).join("\n"));
+  } else {
+    log("Integrity check: ✓ no issues");
+  }
+
+  return lesson;
 }
 
 function makeId(ticketId: string | null, from: string, to: string): string {

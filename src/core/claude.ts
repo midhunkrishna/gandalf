@@ -196,16 +196,3 @@ export async function claudeStructured<S extends ZodTypeAny>(
     return schema.parse(candidate) as z.infer<S>;
   }
 }
-
-/** Plain free-text generation (no schema) — used for quick prose helpers. */
-export async function claudeText(opts: ClaudeOptions): Promise<string> {
-  const out = await spawnClaude(
-    baseArgs(opts),
-    opts.prompt,
-    opts.cwd,
-    opts.timeoutMs ?? DEFAULT_TIMEOUT,
-  );
-  const env = parseEnvelope(out.stdout, out.stderr, opts.label ?? "claude");
-  logTiming(opts.label ?? "claude", opts.model ?? "sonnet", env, out);
-  return env.result ?? "";
-}
