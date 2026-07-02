@@ -25,7 +25,7 @@ await page.screenshot({ path: `${OUT}/1-lesson.png` });
 
 await page.locator(".react-flow__node").first().click().catch(() => {});
 await page.waitForTimeout(900);
-const hasDiff = (await page.locator(".gandalf-diff, .d2h-wrapper").count()) > 0;
+const hasDiff = (await page.locator(".gandalf-diff").count()) > 0;
 await page.screenshot({ path: `${OUT}/2-node-selected.png` });
 
 // drag the resizer left to widen the sidebar -> should switch to side-by-side
@@ -38,7 +38,7 @@ if (box) {
   await page.mouse.move(box.x - 360, box.y + box.height / 2, { steps: 10 });
   await page.mouse.up();
   await page.waitForTimeout(700);
-  sideBySide = (await page.locator(".d2h-file-side-diff").count()) > 0;
+  sideBySide = (await page.locator('[data-diff-view="split"]').count()) > 0;
   await page.screenshot({ path: `${OUT}/5-wide.png` });
 }
 

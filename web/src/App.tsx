@@ -8,16 +8,27 @@ import { cn } from "@/lib/cn.ts";
 import { LessonView } from "@/lens/LessonView.tsx";
 import { DesignPreview } from "@/DesignPreview.tsx";
 import { LessonLibrary } from "@/components/LessonLibrary.tsx";
+import { LessonGallery } from "@/components/LessonGallery.tsx";
 import { ReviewSession } from "@/components/ReviewSession.tsx";
 import { fallbackLesson, fetchLesson, fetchLessonList } from "@/lib/loadLesson.ts";
-import { dueCount as countDue } from "@/lib/reviewStore.ts";
+import { dueCount as countDue, registerQuestions } from "@/lib/reviewStore.ts";
 import { useFileFilter } from "@/lib/fileFilter.tsx";
 import { isHidden } from "@/lib/fileKind.ts";
 
-type View = "lesson" | "tokens";
+type View = "lesson" | "library" | "tokens";
+
+function darkInit(): boolean {
+  try {
+    const stored = localStorage.getItem("gandalf:dark");
+    if (stored != null) return stored === "1";
+  } catch {
+    /* private mode */
+  }
+  return typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
 
 export function App() {
-  const [dark, setDark] = useState(false);
+  const [dark, setDark] = useState(darkInit);
   const [view, setView] = useState<View>("lesson");
   const [lesson, setLesson] = useState<LessonBundle>(fallbackLesson);
   const [currentId, setCurrentId] = useState<string | null>(fallbackLesson.meta.id);
@@ -36,6 +47,21 @@ export function App() {
     setDueN(countDue());
   }, []);
 
+  // Apply + persist the theme; seed the review queue with this lesson's questions.
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+    try {
+      localStorage.setItem("gandalf:dark", dark ? "1" : "0");
+    } catch {
+      /* private mode */
+    }
+  }, [dark]);
+
+  useEffect(() => {
+    registerQuestions(lesson.meta.id, lesson.retrieval?.questions.length ?? 0);
+    setDueN(countDue());
+  }, [lesson]);
+
   function closeReview() {
     setReviewOpen(false);
     setDueN(countDue());
@@ -49,9 +75,7 @@ export function App() {
   }
 
   function toggleDark() {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
+    setDark((d) => !d);
   }
 
   return (
@@ -110,7 +134,7 @@ export function App() {
             </>
           )}
           <div className="flex rounded-md border border-line p-0.5">
-            {(["lesson", "tokens"] as const).map((v) => (
+            {(["lesson", "library", "tokens"] as const).map((v) => (
               <button
                 key={v}
                 onClick={() => setView(v)}
@@ -137,6 +161,15 @@ export function App() {
 
       {view === "lesson" ? (
         <LessonView lesson={lesson} />
+      ) : view === "library" ? (
+        <LessonGallery
+          lessons={library.length ? library : [lesson.meta]}
+          currentId={currentId}
+          onSelect={(id) => {
+            selectLesson(id);
+            setView("lesson");
+          }}
+        />
       ) : (
         <div className="flex-1 overflow-y-auto">
           <DesignPreview />

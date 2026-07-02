@@ -14,6 +14,7 @@ export interface Sched {
 }
 
 const KEY = "gandalf:reviews";
+const SEEN_KEY = "gandalf:seen";
 const BOX_DAYS = [1, 3, 7, 16, 35, 70];
 
 function load(): Record<string, Sched> {
@@ -65,11 +66,46 @@ export function getReview(lessonId: string, index: number): Sched | null {
   return load()[keyFor(lessonId, index)] ?? null;
 }
 
-/** Keys whose next review is due now (or that have never been reviewed but are passed in via `candidates`). */
+function loadSeen(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(SEEN_KEY) ?? "{}") as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Register a lesson's recall questions as encountered. Seen-but-never-rated
+ * questions count as due immediately, so a fresh lesson's questions enter the
+ * Review queue without requiring a manual first rating in the Recall tab.
+ */
+export function registerQuestions(lessonId: string, count: number, now: Date = new Date()): void {
+  if (count <= 0) return;
+  const seen = loadSeen();
+  let dirty = false;
+  for (let i = 0; i < count; i++) {
+    const k = keyFor(lessonId, i);
+    if (!seen[k]) {
+      seen[k] = now.toISOString();
+      dirty = true;
+    }
+  }
+  if (dirty) {
+    try {
+      localStorage.setItem(SEEN_KEY, JSON.stringify(seen));
+    } catch {
+      /* private mode / quota — non-fatal */
+    }
+  }
+}
+
+/** Keys due now: scheduled reviews past their due date + seen-but-never-rated questions. */
 export function dueKeys(now: Date = new Date()): string[] {
   const map = load();
   const t = now.getTime();
-  return Object.keys(map).filter((k) => new Date(map[k]!.dueAt).getTime() <= t);
+  const scheduled = Object.keys(map).filter((k) => new Date(map[k]!.dueAt).getTime() <= t);
+  const unrated = Object.keys(loadSeen()).filter((k) => !map[k]);
+  return [...scheduled, ...unrated];
 }
 
 export function dueCount(now: Date = new Date()): number {

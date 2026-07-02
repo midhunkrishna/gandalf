@@ -78,7 +78,7 @@ r.graphHiddenWhenMax = await page.locator(".react-flow").count(); // expect 0
 await shot("p6-dep-maximized");
 await page.getByRole("button", { name: /Split.*diff/i }).click().catch(() => {});
 await page.waitForTimeout(500);
-r.sideBySideOnSplit = await page.locator(".d2h-file-side-diff").count(); // expect >0
+r.sideBySideOnSplit = await page.locator('[data-diff-view="split"]').count(); // expect >0
 await shot("p6-dep-split");
 await page.keyboard.press("Escape"); // un-maximize
 await page.waitForTimeout(400);

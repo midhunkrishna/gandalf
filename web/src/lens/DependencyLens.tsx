@@ -11,32 +11,29 @@ import { safetyTone } from "@/lib/concept.ts";
 import { useFileFilter } from "@/lib/fileFilter.tsx";
 import { cn } from "@/lib/cn.ts";
 
-function fileForNode(lesson: LessonBundle, nodeId: string | null): FileChange | null {
-  if (!nodeId) return null;
+/**
+ * All files a graph node maps to, best match first. node.module comes from LLM
+ * synthesis and doesn't always match the deterministic file.module taxonomy —
+ * fall back from exact equality to basename / path-prefix / normalized-module
+ * matches. Basename matches prefer the node's own module, so a same-named file
+ * in an unrelated module can't hijack the click. The full in-module list lets
+ * the sidebar offer sibling files instead of hiding them.
+ */
+function filesForNode(lesson: LessonBundle, nodeId: string | null): FileChange[] {
+  if (!nodeId) return [];
   const direct = lesson.files.find((f) => f.path === nodeId);
-  if (direct) return direct;
+  if (direct) return [direct];
   const node = lesson.graph.nodes.find((n) => n.id === nodeId);
-  if (!node) return null;
-  // node.module comes from LLM synthesis and doesn't always match the
-  // deterministic file.module taxonomy — fall back from exact equality to
-  // basename / path-prefix / normalized-module matches, most specific first.
+  if (!node) return [];
   const stem = (p: string) => p.split("/").pop()!.replace(/\.[^.]+$/, "");
   const inModule = (f: FileChange) =>
     f.path.startsWith(`${node.module}/`) ||
     f.module === node.module ||
     f.module === normalizeModule(node.module);
-  // Basename matches prefer the node's own module, so a same-named file in an
-  // unrelated module can't hijack the click.
   const byStem = lesson.files.filter((f) => stem(f.path) === node.id);
-  return (
-    lesson.files.find((f) => f.path === node.module) ??
-    byStem.find(inModule) ??
-    byStem[0] ??
-    lesson.files.find((f) => f.path.startsWith(`${node.module}/`)) ??
-    lesson.files.find((f) => f.module === node.module) ??
-    lesson.files.find((f) => f.module === normalizeModule(node.module)) ??
-    null
-  );
+  const primary = lesson.files.find((f) => f.path === node.module) ?? byStem.find(inModule) ?? byStem[0] ?? null;
+  const siblings = lesson.files.filter((f) => f !== primary && inModule(f));
+  return primary ? [primary, ...siblings] : siblings;
 }
 
 const LEGEND = ["added", "removed", "modified", "unchanged"] as const;
@@ -59,7 +56,10 @@ export function DependencyLens({ lesson }: { lesson: LessonBundle }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lesson.graph, showAll]);
 
-  const file = useMemo(() => fileForNode(lesson, selectedId), [lesson, selectedId]);
+  const nodeFiles = useMemo(() => filesForNode(lesson, selectedId), [lesson, selectedId]);
+  const [fileIdx, setFileIdx] = useState(0);
+  useEffect(() => setFileIdx(0), [selectedId]);
+  const file = nodeFiles[Math.min(fileIdx, nodeFiles.length - 1)] ?? null;
   const contracts = useMemo(
     () => (file ? lesson.contracts.filter((c) => c.file === file.path) : []),
     [lesson, file],
@@ -139,9 +139,29 @@ export function DependencyLens({ lesson }: { lesson: LessonBundle }) {
         ) : (
           <div>
             <div className="space-y-5 p-5 pb-4">
-              <div>
-                <div className="font-mono text-xs text-muted-ink">{file.module}</div>
-                <div className="font-mono text-sm font-medium text-ink">{file.path}</div>
+              <div className="space-y-2">
+                {nodeFiles.length > 1 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {nodeFiles.map((f, i) => (
+                      <button
+                        key={f.path}
+                        onClick={() => setFileIdx(i)}
+                        className={cn(
+                          "rounded-md border px-2 py-0.5 font-mono text-[0.7rem] transition-colors duration-fast",
+                          f === file
+                            ? "border-primary/60 bg-primary/10 text-ink"
+                            : "border-line text-muted-ink hover:border-primary/40 hover:text-ink",
+                        )}
+                      >
+                        {f.path.split("/").pop()}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div>
+                  <div className="font-mono text-xs text-muted-ink">{file.module}</div>
+                  <div className="font-mono text-sm font-medium text-ink">{file.path}</div>
+                </div>
               </div>
               <Tldr tldr={file.tldr} />
               {contracts.length > 0 && (

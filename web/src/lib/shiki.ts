@@ -47,6 +47,31 @@ function resolveLang(hl: HighlighterCore, language: string): string {
   return hl.getLoadedLanguages().includes(lang) ? lang : "text";
 }
 
+/** A minimal themed token for custom renderers (the native diff view). */
+export interface TokenSpan {
+  content: string;
+  color?: string;
+  italic?: boolean;
+  bold?: boolean;
+}
+
+/** Tokenize code into per-line themed spans (for renderers that own their own DOM). */
+export async function tokenizeLines(code: string, language: string, dark: boolean): Promise<TokenSpan[][]> {
+  const hl = await highlighter();
+  const { tokens } = hl.codeToTokens(code, {
+    lang: resolveLang(hl, language),
+    theme: dark ? "github-dark" : "github-light",
+  });
+  return tokens.map((line) =>
+    line.map((t) => ({
+      content: t.content,
+      color: t.color,
+      italic: ((t.fontStyle ?? 0) & 1) !== 0,
+      bold: ((t.fontStyle ?? 0) & 2) !== 0,
+    })),
+  );
+}
+
 /**
  * Highlight code with focus-and-dim (the active beacon stays lit, the rest dims) plus
  * GitHub-style diff colouring of changed lines (added=green, modified=yellow, red removal

@@ -118,80 +118,87 @@
 }
 
 /*
- * diff2html, themed to the design tokens and contained.
- * Scoped under .gandalf-diff so these override diff2html's own stylesheet by specificity.
+ * Dependency graph: signature look — staggered entrance, edge draw-on,
+ * ripple halo pulse, and a status-hued glow in dark mode. The node sets
+ * `--tone` inline to its status hue. All animation collapses to the final
+ * state under the global reduced-motion rule above.
  */
-.gandalf-diff .d2h-wrapper { background: transparent; }
-.gandalf-diff .d2h-file-list-wrapper,
-.gandalf-diff .d2h-file-header { display: none; }
-.gandalf-diff .d2h-file-wrapper { margin: 0; border: 0; border-radius: 0; }
-.gandalf-diff .d2h-diff-table { font-family: var(--font-mono); font-size: 0.72rem; }
-.gandalf-diff td { border-color: hsl(var(--line)); }
-.gandalf-diff .d2h-code-linenumber,
-.gandalf-diff .d2h-code-side-linenumber {
-  background: hsl(var(--surface-2));
-  color: hsl(var(--muted-ink));
-  border-color: hsl(var(--line));
+@keyframes gg-node-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
-.gandalf-diff .d2h-info {
-  background: hsl(var(--surface-2));
-  color: hsl(var(--muted-ink));
+@keyframes gg-edge-draw {
+  from { stroke-dasharray: 600; stroke-dashoffset: 600; }
+  to { stroke-dasharray: 600; stroke-dashoffset: 0; }
 }
-.gandalf-diff .d2h-ins { background: hsl(var(--added) / 0.13); }
-.gandalf-diff .d2h-del { background: hsl(var(--removed) / 0.13); }
-.gandalf-diff .d2h-ins ins,
-.gandalf-diff .d2h-code-line ins { background: hsl(var(--added) / 0.28); text-decoration: none; }
-.gandalf-diff .d2h-del del,
-.gandalf-diff .d2h-code-line del { background: hsl(var(--removed) / 0.28); text-decoration: none; }
-.gandalf-diff .d2h-emptyplaceholder,
-.gandalf-diff .d2h-code-side-emptyplaceholder { background: hsl(var(--muted) / 0.4); border-color: hsl(var(--line)); }
-.gandalf-diff .d2h-code-line-ctn { color: hsl(var(--ink)); white-space: pre; }
+@keyframes gg-fade-in {
+  from { opacity: 0; }
+}
+@keyframes gg-ripple {
+  from { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4); }
+  to { box-shadow: 0 0 0 10px hsl(var(--primary) / 0); }
+}
+.dark .gg-node[data-glow="true"] {
+  box-shadow: 0 0 0 1px hsl(var(--tone) / 0.35), 0 0 24px hsl(var(--tone) / 0.2);
+}
+.react-flow__edge-path { transition: opacity 180ms ease, stroke-width 180ms ease; }
+.react-flow {
+  --xy-controls-button-background-color: hsl(var(--surface));
+  --xy-controls-button-background-color-hover: hsl(var(--surface-2));
+  --xy-controls-button-color: hsl(var(--ink));
+  --xy-controls-button-border-color: hsl(var(--line));
+}
+.react-flow__controls { border-radius: var(--radius-sm); overflow: hidden; }
 
 /*
- * diff2html positions its line-number <td> with `position: absolute` (and pads the code cell
- * by 8em to leave room), relying on a per-row positioned ancestor that our table layout does
- * not provide — so the numbers anchor to the viewport and float free of their code rows.
- * Pin them back into normal table-cell flow and drop the compensating padding.
+ * Native diff view (CodePanel): parsed rows + Shiki tokens, styled entirely on
+ * the design tokens. `.gd-add` / `.gd-del` washes reuse the same concept hues
+ * as the graph and legends; `.gd-beacon` marks the focal lines.
  */
-.gandalf-diff td.d2h-code-linenumber {
-  position: static;
-  display: table-cell;
+.gandalf-diff table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+.gandalf-diff td { padding: 0 0.55rem; vertical-align: top; }
+.gandalf-diff .gd-num {
   width: 1%;
-  white-space: nowrap;
-  vertical-align: top;
-  direction: ltr;
-  padding: 0;
-}
-.gandalf-diff .line-num1,
-.gandalf-diff .line-num2 {
-  float: none;
-  display: inline-block;
-  box-sizing: border-box;
-  width: 2.5em;
-  padding: 0 0.45em;
+  min-width: 2.8em;
   text-align: right;
+  color: hsl(var(--muted-ink) / 0.8);
+  background: hsl(var(--surface-2) / 0.6);
+  font-size: 0.66rem;
+  padding-top: 1px;
+  user-select: none;
 }
-.gandalf-diff .d2h-code-line {
-  position: static;
-  width: auto;
-  padding: 0 0.6em;
+.gandalf-diff .gd-mark { width: 1ch; padding: 0 0.3rem; user-select: none; }
+.gandalf-diff .gd-code { white-space: pre; color: hsl(var(--ink)); }
+.gandalf-diff .gd-hunk {
+  background: hsl(var(--surface-2));
+  color: hsl(var(--muted-ink));
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  padding: 3px 0.75rem;
+  border-top: 1px solid hsl(var(--line));
+  border-bottom: 1px solid hsl(var(--line));
+  user-select: none;
 }
-/* Same fix for split (side-by-side) view. */
-.gandalf-diff td.d2h-code-side-linenumber {
-  position: static;
-  display: table-cell;
-  width: 1%;
-  white-space: nowrap;
-  vertical-align: top;
-  direction: ltr;
-  padding: 0 0.4em;
-  text-align: right;
-}
-.gandalf-diff .d2h-code-side-line {
-  position: static;
-  width: auto;
-  padding: 0 0.6em;
-}
+.gandalf-diff .gd-hunk-first { border-top: 0; }
+.gandalf-diff .gd-add { background: hsl(var(--added) / 0.12); }
+.gandalf-diff .gd-del { background: hsl(var(--removed) / 0.12); }
+.gandalf-diff .gd-add .gd-num,
+.gandalf-diff td.gd-num.gd-add { background: hsl(var(--added) / 0.18); color: hsl(var(--ink) / 0.7); }
+.gandalf-diff .gd-del .gd-num,
+.gandalf-diff td.gd-num.gd-del { background: hsl(var(--removed) / 0.18); color: hsl(var(--ink) / 0.7); }
+.gandalf-diff .gd-add .gd-mark,
+.gandalf-diff td.gd-mark.gd-add { color: hsl(var(--added)); font-weight: 600; }
+.gandalf-diff .gd-del .gd-mark,
+.gandalf-diff td.gd-mark.gd-del { color: hsl(var(--removed)); font-weight: 600; }
+.gandalf-diff .gd-empty { background: hsl(var(--muted) / 0.35); }
+.gandalf-diff .gd-beacon { box-shadow: inset 2px 0 0 hsl(var(--primary) / 0.85); }
+.gandalf-diff .gd-split-divide { border-left: 1px solid hsl(var(--line)); }
 
 /* Walkthrough code stage (Shiki) — focus-and-dim, themed background. */
 .gandalf-code pre.shiki {

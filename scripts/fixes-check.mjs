@@ -35,8 +35,8 @@ await page.getByRole("tab", { name: "Dependencies" }).click();
 await page.waitForTimeout(1200);
 await page.locator(".react-flow__node").first().click().catch(() => {});
 await page.waitForTimeout(900);
-r.diffSideBySide = await page.locator(".d2h-file-side-diff").count(); // expect 0 (line-by-line)
-r.diffLineByLine = await page.locator(".d2h-diff-table").count();
+r.diffSideBySide = await page.locator('[data-diff-view="split"]').count(); // expect 0 (unified)
+r.diffLineByLine = await page.locator('[data-diff-view="unified"]').count();
 await page.screenshot({ path: `${OUT}/fx-diff.png` });
 
 // (3)+(4) Walkthrough — scroll into a code scene, check diff colours + hover scroll.

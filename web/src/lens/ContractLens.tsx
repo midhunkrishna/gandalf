@@ -53,26 +53,31 @@ export function ContractLens({ lesson }: { lesson: LessonBundle }) {
                   answer={c.safety}
                   distractors={SAFETIES.filter((s) => s !== c.safety)}
                   question="Given these signature changes, is this Safe or Breaking (Design-by-Contract)?"
+                  selfExplain={
+                    c.preconditionDelta || c.postconditionDelta
+                      ? {
+                          prompt: `Explain in your own words why this is ${c.safety} under Design-by-Contract.`,
+                          rationale: (
+                            <div className="space-y-0.5 text-xs text-muted-ink">
+                              {c.preconditionDelta && (
+                                <div>
+                                  <span className="font-medium text-ink">precondition:</span>{" "}
+                                  {c.preconditionDelta}
+                                </div>
+                              )}
+                              {c.postconditionDelta && (
+                                <div>
+                                  <span className="font-medium text-ink">postcondition:</span>{" "}
+                                  {c.postconditionDelta}
+                                </div>
+                              )}
+                            </div>
+                          ),
+                        }
+                      : undefined
+                  }
                 >
-                  <div className="space-y-2">
-                    <Badge tone={safetyTone(c.safety)}>{c.safety}</Badge>
-                    {(c.preconditionDelta || c.postconditionDelta) && (
-                      <div className="space-y-0.5 text-xs text-muted-ink">
-                        {c.preconditionDelta && (
-                          <div>
-                            <span className="font-medium text-ink">precondition:</span>{" "}
-                            {c.preconditionDelta}
-                          </div>
-                        )}
-                        {c.postconditionDelta && (
-                          <div>
-                            <span className="font-medium text-ink">postcondition:</span>{" "}
-                            {c.postconditionDelta}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  <Badge tone={safetyTone(c.safety)}>{c.safety}</Badge>
                 </PredictReveal>
               </div>
             </Reveal>

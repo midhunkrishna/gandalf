@@ -1,9 +1,13 @@
 import { lazy, Suspense, useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
-import { Loader2, ChevronUp, ChevronDown } from "lucide-react";
+import { Loader2, ChevronUp, ChevronDown, GitCommitHorizontal, MoveRight } from "lucide-react";
 import type { LessonBundle } from "@engine/core/schemas.ts";
-import { Badge } from "@/ui/badge.tsx";
 import { cn } from "@/lib/cn.ts";
+import { Constellation } from "@/components/Constellation.tsx";
+import { shortRef } from "@/lib/refs.ts";
+import { CountUp } from "@/components/CountUp.tsx";
+import { ShareCardButton } from "@/components/ShareCard.tsx";
+import { VerdictStamp, BreakingStamp } from "@/components/VerdictStamp.tsx";
 import { DepthProvider } from "@/state/depth.tsx";
 import { QuizModeProvider } from "@/lib/quizMode.tsx";
 import { DepthSelector } from "@/components/DepthSelector.tsx";
@@ -47,6 +51,17 @@ const triggerCls = cn(
 const iconBtn =
   "rounded-md p-1 text-muted-ink transition-colors duration-fast hover:bg-surface-2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
 
+function StatChip({ value, label }: { value: number; label: string }) {
+  return (
+    <span className="inline-flex items-baseline gap-1 rounded-md border border-line bg-bg/70 px-2 py-0.5 backdrop-blur">
+      <span className="text-sm font-semibold tabular-nums text-ink">
+        <CountUp value={value} />
+      </span>
+      <span className="text-[0.7rem] text-muted-ink">{label}</span>
+    </span>
+  );
+}
+
 function heroInit(): boolean {
   try {
     return localStorage.getItem("gandalf:hero-collapsed") === "1";
@@ -56,7 +71,8 @@ function heroInit(): boolean {
 }
 
 export function LessonView({ lesson }: { lesson: LessonBundle }) {
-  const [tab, setTab] = useState("dependency");
+  // Overview first — Shneiderman's mantra: overview, then zoom & filter, then details.
+  const [tab, setTab] = useState("overview");
   const [heroCollapsed, setHeroCollapsed] = useState<boolean>(heroInit);
   const setHero = (v: boolean) => {
     setHeroCollapsed(v);
@@ -72,27 +88,58 @@ export function LessonView({ lesson }: { lesson: LessonBundle }) {
       <QuizModeProvider>
         <div className="flex min-h-0 flex-1 flex-col">
           {!heroCollapsed && (
-            <div className="relative border-b border-line bg-surface/40 px-6 py-4">
-              <button
-                onClick={() => setHero(true)}
-                aria-label="Collapse header"
-                title="Collapse — give the tabs more room"
-                className={cn(iconBtn, "absolute right-4 top-4")}
-              >
-                <ChevronUp className="h-4 w-4" />
-              </button>
-              <div className="flex flex-wrap items-center gap-2.5 pr-8">
-                <h1 className="text-xl">{lesson.meta.title}</h1>
-                <Badge tone={lesson.meta.verdict === "behavioral" ? "modified" : "safe"}>
-                  {lesson.meta.verdict === "behavioral" ? "behavioral change" : "refactor-only"}
-                </Badge>
-                {lesson.meta.breakingCount > 0 && (
-                  <Badge tone="breaking">{lesson.meta.breakingCount} breaking</Badge>
-                )}
+            <div className="relative overflow-hidden border-b border-line bg-surface/40">
+              <Constellation
+                graph={lesson.graph}
+                className="pointer-events-none absolute inset-0 h-full w-full"
+                style={{
+                  // Keep the drawing right-of-center so it never fights the title/prose.
+                  maskImage: "linear-gradient(to right, transparent 30%, black 62%)",
+                  WebkitMaskImage: "linear-gradient(to right, transparent 30%, black 62%)",
+                }}
+              />
+              <div className="relative px-6 py-5">
+                <button
+                  onClick={() => setHero(true)}
+                  aria-label="Collapse header"
+                  title="Collapse — give the tabs more room"
+                  className={cn(iconBtn, "absolute right-4 top-0")}
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </button>
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2 pr-8">
+                  <h1 className="max-w-3xl font-display text-2xl leading-snug md:text-3xl">
+                    {lesson.meta.title}
+                  </h1>
+                  <span className="flex shrink-0 items-center gap-2">
+                    <VerdictStamp verdict={lesson.meta.verdict} />
+                    <BreakingStamp count={lesson.meta.breakingCount} />
+                  </span>
+                </div>
+                <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-ink">
+                  {lesson.meta.hypothesis}
+                </p>
+                <div className="mt-3.5 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                  <span className="flex items-center gap-1.5 font-mono text-xs text-muted-ink">
+                    <GitCommitHorizontal className="h-3.5 w-3.5" />
+                    {shortRef(lesson.meta.fromRef)}
+                    <MoveRight className="h-3 w-3" />
+                    {shortRef(lesson.meta.toRef)}
+                  </span>
+                  {lesson.meta.ticketId && (
+                    <span className="font-mono text-xs text-muted-ink">{lesson.meta.ticketId}</span>
+                  )}
+                  <span className="font-mono text-xs text-muted-ink">
+                    {lesson.meta.createdAt.slice(0, 10)}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <StatChip value={lesson.files.length} label="files" />
+                    <StatChip value={lesson.contracts.length} label="contracts" />
+                    <StatChip value={lesson.retrieval?.questions.length ?? 0} label="recall" />
+                  </span>
+                  <ShareCardButton lesson={lesson} />
+                </div>
               </div>
-              <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-muted-ink">
-                {lesson.meta.hypothesis}
-              </p>
             </div>
           )}
 

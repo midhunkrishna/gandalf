@@ -30,6 +30,14 @@ export function TraceCard({ card }: { card: TraceCardT }) {
         answer={card.afterOutput}
         distractors={card.prediction?.distractors ?? []}
         question={card.prediction?.question ?? "What does it produce now?"}
+        selfExplain={{
+          prompt: "Explain in your own words why the behavior changed.",
+          rationale: (
+            <p className="border-t border-line pt-2.5 text-xs italic leading-relaxed text-muted-ink">
+              {card.gwt}
+            </p>
+          ),
+        }}
       >
         <div className="space-y-3">
           <div className="space-y-1">
@@ -57,10 +65,6 @@ export function TraceCard({ card }: { card: TraceCardT }) {
               ))}
             </div>
           )}
-
-          <p className="border-t border-line pt-2.5 text-xs italic leading-relaxed text-muted-ink">
-            {card.gwt}
-          </p>
         </div>
       </PredictReveal>
     </div>
