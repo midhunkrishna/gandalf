@@ -113,8 +113,10 @@ export function DependencyGraph({
   );
 
   // The hovered (or, failing that, selected) node defines the focused neighborhood;
-  // everything outside it dims so impact propagation reads at a glance.
-  const focusId = hoverId ?? selectedId;
+  // everything outside it dims so impact propagation reads at a glance. A selection
+  // that isn't a graph node (e.g. a file-path deep link) must not dim the world.
+  const focus = hoverId ?? selectedId;
+  const focusId = focus && nodeIds.has(focus) ? focus : null;
   const neighborhood = useMemo(() => {
     if (!focusId) return null;
     const set = new Set([focusId]);

@@ -15,7 +15,7 @@ import { fallbackLesson, fetchLesson, fetchLessonList } from "@/lib/loadLesson.t
 import { dueCount as countDue, registerQuestions } from "@/lib/reviewStore.ts";
 import { useFileFilter } from "@/lib/fileFilter.tsx";
 import { isHidden } from "@/lib/fileKind.ts";
-import { useRoute, navigate } from "@/lib/router.ts";
+import { useRoute, navigate, NO_DETAIL } from "@/lib/router.ts";
 
 function darkInit(): boolean {
   try {
@@ -51,7 +51,8 @@ export function App() {
       if (cancelled) return;
       setLesson(l);
       if (route.view === "lesson" && l.meta.id !== route.lessonId) {
-        navigate({ lessonId: l.meta.id }, { replace: true });
+        // Fallback fired — detail params belonged to the requested lesson, drop them.
+        navigate({ lessonId: l.meta.id, ...NO_DETAIL }, { replace: true });
       }
     });
     return () => {
@@ -81,7 +82,7 @@ export function App() {
   }
 
   function selectLesson(id: string) {
-    navigate({ view: "lesson", lessonId: id, node: null });
+    navigate({ view: "lesson", lessonId: id, ...NO_DETAIL });
   }
 
   function toggleDark() {

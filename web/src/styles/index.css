@@ -170,6 +170,13 @@
   box-shadow: 0 0 0 1px hsl(var(--tone) / 0.35), 0 0 24px hsl(var(--tone) / 0.2);
 }
 .react-flow__edge-path { transition: opacity 180ms ease, stroke-width 180ms ease; }
+
+/* One-shot attention flash for cross-navigation targets (contract row, diff line). */
+@keyframes gg-flash {
+  from { background-color: hsl(var(--primary) / 0.18); }
+}
+.gg-flash { animation: gg-flash 1.6s ease-out; }
+.gandalf-diff tr.gg-flash > td { animation: gg-flash 1.6s ease-out; }
 .react-flow {
   --xy-controls-button-background-color: hsl(var(--surface));
   --xy-controls-button-background-color-hover: hsl(var(--surface-2));

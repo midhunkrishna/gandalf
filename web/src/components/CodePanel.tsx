@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FileChange } from "@engine/core/schemas.ts";
 import { parseUnifiedDiff, pairRows, type DiffHunk, type DiffRow } from "@/lib/parseDiff.ts";
 import { tokenizeLines, type TokenSpan } from "@/lib/shiki.ts";
 import { useIsDark } from "@/lib/useIsDark.ts";
+import { prefersReducedMotion } from "@/lib/reducedMotion.ts";
 import { cn } from "@/lib/cn.ts";
 
 /**
@@ -68,8 +69,18 @@ function CodeText({ tokens, text }: { tokens: RowTokens; text: string }) {
 
 const rowClass = (kind: DiffRow["kind"]) => (kind === "add" ? "gd-add" : kind === "del" ? "gd-del" : undefined);
 
-export function CodePanel({ file, split = false }: { file: FileChange; split?: boolean }) {
+export function CodePanel({
+  file,
+  split = false,
+  focusLine = null,
+}: {
+  file: FileChange;
+  split?: boolean;
+  /** After-file line to scroll to and flash (cross-navigation target). */
+  focusLine?: number | null;
+}) {
   const dark = useIsDark();
+  const container = useRef<HTMLDivElement>(null);
   const hunks = useMemo(() => parseUnifiedDiff(file.unifiedDiff), [file.unifiedDiff]);
   const beaconLines = useMemo(() => {
     const s = new Set<number>();
@@ -89,6 +100,21 @@ export function CodePanel({ file, split = false }: { file: FileChange; split?: b
     };
   }, [hunks, file.language, dark]);
 
+  // Scroll to + flash the focused line. Degrades to a no-op when the line has
+  // no diff row (stale link after regeneration) — never a wrong target.
+  useEffect(() => {
+    if (focusLine == null) return;
+    const raf = requestAnimationFrame(() => {
+      const rows = container.current?.querySelectorAll<HTMLTableRowElement>("tr[data-after]") ?? [];
+      const target = Array.from(rows).find((r) => Number(r.dataset.after) >= focusLine);
+      if (!target) return;
+      target.scrollIntoView({ block: "center", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+      target.classList.add("gg-flash");
+      setTimeout(() => target.classList.remove("gg-flash"), 1700);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [focusLine, file.path, split]);
+
   if (hunks.length === 0) {
     return <p className="px-1 text-sm text-muted-ink">No text diff for this file.</p>;
   }
@@ -96,7 +122,7 @@ export function CodePanel({ file, split = false }: { file: FileChange; split?: b
   const isBeacon = (r: DiffRow | null) => r?.afterNo != null && beaconLines.has(r.afterNo);
 
   return (
-    <div className="gandalf-diff overflow-x-auto rounded-md border border-line" data-diff-view={split ? "split" : "unified"}>
+    <div ref={container} className="gandalf-diff overflow-x-auto rounded-md border border-line" data-diff-view={split ? "split" : "unified"}>
       <table>
         <tbody>
           {hunks.map((hunk, hi) => {
@@ -110,7 +136,7 @@ export function CodePanel({ file, split = false }: { file: FileChange; split?: b
               </tr>,
               ...(split
                 ? pairRows(hunk.rows).map((pair, ri) => (
-                    <tr key={`${hi}:${ri}`}>
+                    <tr key={`${hi}:${ri}`} data-after={pair.right?.afterNo ?? undefined}>
                       <td className={cn("gd-num", pair.left && rowClass(pair.left.kind))}>{pair.left?.beforeNo ?? ""}</td>
                       <td className={cn("gd-mark", pair.left && rowClass(pair.left.kind), !pair.left && "gd-empty")}>
                         {pair.left?.kind === "del" ? "−" : ""}
@@ -130,7 +156,7 @@ export function CodePanel({ file, split = false }: { file: FileChange; split?: b
                     </tr>
                   ))
                 : hunk.rows.map((row, ri) => (
-                    <tr key={`${hi}:${ri}`} className={rowClass(row.kind)}>
+                    <tr key={`${hi}:${ri}`} className={rowClass(row.kind)} data-after={row.afterNo ?? undefined}>
                       <td className={cn("gd-num", isBeacon(row) && "gd-beacon")}>{row.beforeNo ?? ""}</td>
                       <td className="gd-num">{row.afterNo ?? ""}</td>
                       <td className="gd-mark">{row.kind === "add" ? "+" : row.kind === "del" ? "−" : ""}</td>

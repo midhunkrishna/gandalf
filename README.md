@@ -144,6 +144,7 @@ Open a lesson in `gandalf serve`. Each lesson is a set of **lenses** (tabs), pre
 - **Collapse hero** (chevron) — hide the title block to give the lenses more vertical room.
 - **Dark mode** and the **Lessons** timeline live in the header (theme + depth tier persist).
 - **Addressable views** — the URL tracks where you are (`#/lesson/<id>/<tab>`, plus the selected module on Dependencies, `#/library`, `#/tokens`), so reloads keep your place and links can be pasted/shared. Hash-based, so it also works in the offline single-file export.
+- **Contract ↔ diff linking** — click a contract's symbol to open its exact lines in the Dependencies diff (`?l=<line>`); a pinned "← Back to <symbol>" chip returns you to that contract row. Anchors are content-addressed (`file::symbol`), so stale links degrade to the right file or tab, never a wrong target.
 - **Library** (header toggle) — a gallery landing page of every lesson as a cover card; click to open.
 - **Share card** (in the lesson hero) — downloads a 1200×630 branded PNG of the lesson for posting.
 - **Esc** resets any non-default view state (closes the diagram zoom, un-maximizes the diff).

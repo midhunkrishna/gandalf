@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Maximize2, Minimize2, Columns2, Rows2 } from "lucide-react";
+import { ArrowLeft, Maximize2, Minimize2, Columns2, Rows2 } from "lucide-react";
 import type { LessonBundle, FileChange, ModuleGraphDelta } from "@engine/core/schemas.ts";
 import { normalizeModule } from "@engine/core/modules.ts";
 import { Badge } from "@/ui/badge.tsx";
@@ -11,7 +11,7 @@ import { safetyTone } from "@/lib/concept.ts";
 import { useFileFilter } from "@/lib/fileFilter.tsx";
 import { SectionHeading } from "@/ui/SectionHeading.tsx";
 import { DoodleGraph } from "@/ui/doodles.tsx";
-import { useRoute, navigate } from "@/lib/router.ts";
+import { useRoute, navigate, contractAnchor, resolveContractAnchor, NO_DETAIL } from "@/lib/router.ts";
 import { cn } from "@/lib/cn.ts";
 
 /**
@@ -45,9 +45,17 @@ const toolBtn =
 
 export function DependencyLens({ lesson }: { lesson: LessonBundle }) {
   // The URL owns the selected node (deep-linkable); replace-mode keeps
-  // graph-clicking from flooding the history.
-  const selectedId = useRoute().node;
-  const setSelectedId = (id: string | null) => navigate({ node: id }, { replace: true });
+  // graph-clicking from flooding the history. Manual selection drops any
+  // contract-jump focus/back state — it belongs to the jump, not the node.
+  const route = useRoute();
+  const selectedId = route.node;
+  const setSelectedId = (id: string | null) =>
+    navigate({ ...NO_DETAIL, node: id }, { replace: true });
+  // The contract we arrived from (back chip); a stale anchor renders nothing.
+  const fromContract = useMemo(
+    () => (route.from ? resolveContractAnchor(lesson.contracts, route.from) : null),
+    [route.from, lesson.contracts],
+  );
   const [sidebarWidth, setSidebarWidth] = useState(460);
   const [maximized, setMaximized] = useState(false);
   const [split, setSplit] = useState(false);
@@ -128,6 +136,22 @@ export function DependencyLens({ lesson }: { lesson: LessonBundle }) {
         style={maximized ? undefined : { width: sidebarWidth }}
         className={cn("overflow-y-auto bg-bg", maximized ? "flex-1" : "shrink-0 border-l border-line")}
       >
+        {fromContract && (
+          // Sticky: the diff auto-scrolls to the focused line, and the way back
+          // must stay one visible click away.
+          <div className="sticky top-0 z-20 flex h-[42px] items-center border-b border-line bg-bg/95 px-5 backdrop-blur">
+            <button
+              onClick={() => navigate({ tab: "contract", ...NO_DETAIL, contract: contractAnchor(fromContract) })}
+              className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-line px-2 py-1 text-xs text-muted-ink transition-colors duration-fast hover:border-primary/50 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+              title="Return to this contract in the Contracts lens"
+            >
+              <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">
+                Back to <span className="font-mono text-ink">{fromContract.symbol}</span>
+              </span>
+            </button>
+          </div>
+        )}
         {!file ? (
           <div className="space-y-5 p-5">
             <div className="rounded-md border border-dashed border-line bg-surface/50 p-4 text-sm text-muted-ink">
@@ -173,10 +197,23 @@ export function DependencyLens({ lesson }: { lesson: LessonBundle }) {
                   <SectionHeading>Contract changes</SectionHeading>
                   <ul className="space-y-1.5">
                     {contracts.map((c) => (
-                      <li key={c.symbol} className="flex items-center gap-2 text-sm">
-                        <Badge tone={safetyTone(c.safety)}>{c.safety}</Badge>
-                        <span className="font-mono text-xs text-ink">{c.symbol}</span>
-                        <span className="text-xs text-muted-ink">({c.changeType})</span>
+                      <li key={c.symbol}>
+                        <button
+                          onClick={() =>
+                            c.beaconLines.length &&
+                            navigate({ line: c.beaconLines[0] }, { replace: true })
+                          }
+                          title={c.beaconLines.length ? `Show in the diff (line ${c.beaconLines[0]})` : undefined}
+                          className={cn(
+                            "flex w-full items-center gap-2 rounded-sm text-left text-sm",
+                            c.beaconLines.length &&
+                              "transition-colors duration-fast hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary",
+                          )}
+                        >
+                          <Badge tone={safetyTone(c.safety)}>{c.safety}</Badge>
+                          <span className="truncate font-mono text-xs text-ink">{c.symbol}</span>
+                          <span className="shrink-0 text-xs text-muted-ink">({c.changeType})</span>
+                        </button>
                       </li>
                     ))}
                   </ul>
@@ -184,8 +221,14 @@ export function DependencyLens({ lesson }: { lesson: LessonBundle }) {
               )}
             </div>
 
-            {/* Diff toolbar: pinned to the top of the scrolling panel, floats over the diff on scroll. */}
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-y border-line bg-bg/95 px-5 py-2 backdrop-blur">
+            {/* Diff toolbar: pinned to the top of the scrolling panel, floats over the diff on scroll
+                (below the back chip when one is present). */}
+            <div
+              className={cn(
+                "sticky z-10 flex items-center justify-between gap-2 border-y border-line bg-bg/95 px-5 py-2 backdrop-blur",
+                fromContract ? "top-[42px]" : "top-0",
+              )}
+            >
               <SectionHeading>Diff</SectionHeading>
               <div className="flex items-center gap-1">
                 <button
@@ -209,7 +252,7 @@ export function DependencyLens({ lesson }: { lesson: LessonBundle }) {
               </div>
             </div>
             <div className="p-5 pt-3">
-              <CodePanel file={file} split={split} />
+              <CodePanel file={file} split={split} focusLine={route.line} />
             </div>
           </div>
         )}
