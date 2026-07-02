@@ -12,12 +12,20 @@ export interface Built {
   prompt: string;
 }
 
+/** Shared voice for ALL generated prose: the story of the change, told tight. */
+const STYLE = `VOICE — every piece of prose you produce:
+- Write like a senior engineer telling a colleague the story of the change: what was true before, what forced the change, what is true now.
+- Short declarative sentences. Concrete identifiers from the diff, not categories.
+- No hedging ("may", "could potentially"), no throat-clearing ("This change introduces…", "It's worth noting"), at most one dash per paragraph.
+- Cut roughly 30% of what you would normally write: one vivid specific beats three generic claims.`;
+
 const FILE_SYSTEM = `You are a senior engineer writing precise teaching material about ONE changed file in a code review.
 Rules:
 - Ground every complexity claim in the provided metrics. If metrics are absent, ESTIMATE cognitive complexity using SonarSource rules (ignore shorthand like a whole switch; +1 per break in linear flow — loops/conditionals/catch/sequences of boolean ops/recursion; +1 extra per level of nesting) and note it is an estimate.
-- "beacons" are the few focal line ranges that carry the change's meaning — not every changed line. Use line numbers from the AFTER file where possible.
+- "beacons" are the few focal line ranges that carry the change's meaning — not every changed line. Use line numbers from the AFTER file where possible. Each beacon's "note" is a scene caption: what this focal code pulls off, in one line.
 - For each changed declaration, emit a ContractChange. Decide safety with Design-by-Contract: weakening a precondition or strengthening a postcondition is SAFE (backward-compatible); strengthening a precondition or weakening a postcondition is BREAKING. Use "unknown" when unclear.
-- tldr.before / tldr.now / tldr.behaviorChanged must be one sentence each, concrete.
+- tldr.before = the old world and its limit; tldr.now = what the file does now; tldr.behaviorChanged = the observable consequence. One sentence each, at most ~16 words, concrete.
+${STYLE}
 Output must satisfy the provided JSON schema exactly.`;
 
 export function filePassPrompt(file: FileChange, evidence: string): Built {
@@ -44,15 +52,15 @@ Produce the per-file teaching artifact for this single file.`;
 // Synthesis is fanned out into focused passes. Each shares the same grounding context
 // (ticket intent + deterministic evidence + per-file findings) but has a narrow system
 // prompt + small schema, so each `claude -p` call is faster and more reliably satisfied.
-const SYNTH_INTRO =
-  "You are a staff engineer synthesizing one facet of a multi-lens lesson about a code change, for a teammate learning what changed and why. Ground everything in the per-file findings + deterministic evidence + ticket intent (the WHY). Be specific, not preachy.";
+const SYNTH_INTRO = `You are a staff engineer synthesizing one facet of a multi-lens lesson about a code change, for a teammate learning what changed and why. Ground everything in the per-file findings + deterministic evidence + ticket intent (the WHY). Be specific, not preachy.
+${STYLE}`;
 const SYNTH_OUTRO = "Output must satisfy the provided JSON schema exactly.";
 
 const SYNTH_NARRATIVE_SYSTEM = `${SYNTH_INTRO}
 Produce the lesson framing:
 - title: a specific, concrete headline (≤ ~12 words) naming what changed.
-- hypothesis: one line stating what the change is trying to accomplish.
-- summary: 2–4 sentences on the change and its purpose, foregrounding the WHY.
+- hypothesis: one line (≤ ~14 words) stating what the change is trying to accomplish.
+- summary: 2–3 sentences telling the arc — the itch (why the change was needed), the move (what changed), the payoff (what is now possible).
 ${SYNTH_OUTRO}`;
 
 const SYNTH_BEHAVIORAL_SYSTEM = `${SYNTH_INTRO}
@@ -72,7 +80,7 @@ rippleTargets entries MUST be exact node ids or canonical module values — bare
 ${SYNTH_OUTRO}`;
 
 const SYNTH_DATAFLOW_SYSTEM = `${SYNTH_INTRO}
-Produce the data flow: a Mermaid sequence diagram (valid Mermaid source) describing the runtime flow through the changed path; an optional Sankey (quantities of data/calls between modules) or null; and a before/after narrative.
+Produce the data flow: a Mermaid sequence diagram (valid Mermaid source) describing the runtime flow through the changed path; an optional Sankey (quantities of data/calls between modules) or null; and a before/after narrative — two mini-scenes, at most 2 sentences each.
 ${SYNTH_OUTRO}`;
 
 const SYNTH_PATTERNS_SYSTEM = `${SYNTH_INTRO}
@@ -80,7 +88,7 @@ Produce patterns: design / architecture patterns (incl. MVC/MVVM/VIPER/TCA) and 
 ${SYNTH_OUTRO}`;
 
 const SYNTH_EXPLANATIONS_SYSTEM = `${SYNTH_INTRO}
-Produce per-lens tiered explanations for each lens (behavioral / dependency / contract / dataflow), at four altitudes where altitude changes the CONTENT, not just length: eli5 = analogy + one-line user impact; junior = the trace + named concepts; senior = control/state + edge cases; architect = module ripple + contract/invariant deltas.
+Produce per-lens tiered explanations for each lens (behavioral / dependency / contract / dataflow), at four altitudes where altitude changes the CONTENT, not just length: eli5 = analogy + one-line user impact; junior = the trace + named concepts; senior = control/state + edge cases; architect = module ripple + contract/invariant deltas. Every tier keeps the story arc (before, the force, now) at its own altitude.
 ${SYNTH_OUTRO}`;
 
 const SYNTH_RETRIEVAL_SYSTEM = `${SYNTH_INTRO}
