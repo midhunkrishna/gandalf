@@ -9,6 +9,7 @@ export function MermaidZoom({ svg, onClose }: { svg: string; onClose: () => void
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const drag = useRef<{ x: number; y: number } | null>(null);
+  const content = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -16,8 +17,23 @@ export function MermaidZoom({ svg, onClose }: { svg: string; onClose: () => void
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  // Open fit-to-screen: diagrams render at their natural (often small) size, so
+  // scale up to fill ~85% of the viewport for legibility (never shrink below 1×… unless huge).
+  const fitScale = () => {
+    const el = content.current;
+    if (!el || !el.offsetWidth || !el.offsetHeight) return 1;
+    return Math.min(
+      (window.innerWidth * 0.85) / el.offsetWidth,
+      (window.innerHeight * 0.85) / el.offsetHeight,
+      5,
+    );
+  };
+  useEffect(() => {
+    setScale(fitScale());
+  }, [svg]);
+
   const reset = () => {
-    setScale(1);
+    setScale(fitScale());
     setPan({ x: 0, y: 0 });
   };
   const zoomBy = (f: number) => setScale((s) => Math.min(6, Math.max(0.4, s * f)));
@@ -55,8 +71,11 @@ export function MermaidZoom({ svg, onClose }: { svg: string; onClose: () => void
         onMouseUp={onUp}
         onMouseLeave={onUp}
       >
+        {/* Solid theme-background panel: the SVG is themed for the page bg, so rendering it
+            straight onto the dimmed backdrop kills its contrast — give it its own surface. */}
         <div
-          className="gandalf-mermaid select-none"
+          ref={content}
+          className="gandalf-mermaid select-none rounded-lg border border-line bg-bg p-8 shadow-xl"
           style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`, transformOrigin: "center" }}
           dangerouslySetInnerHTML={{ __html: svg }}
         />

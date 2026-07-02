@@ -4,7 +4,7 @@ import { toPng } from "html-to-image";
 import { GitBranch, ImageDown, Loader2 } from "lucide-react";
 import type { LessonBundle } from "@engine/core/schemas.ts";
 import { Constellation } from "./Constellation.tsx";
-import { VerdictStamp, BreakingStamp } from "./VerdictStamp.tsx";
+import { Badge } from "@/ui/badge.tsx";
 import { shortRef } from "@/lib/refs.ts";
 
 /**
@@ -48,9 +48,18 @@ const Card = forwardRef<HTMLDivElement, { lesson: LessonBundle }>(function Card(
       <h1 className="relative mt-9 max-w-[64rem] font-display text-[50px] font-semibold leading-[1.1]">
         {lesson.meta.title}
       </h1>
-      <div className="relative mt-7 flex items-center gap-5">
-        <VerdictStamp verdict={lesson.meta.verdict} size="lg" />
-        <BreakingStamp count={lesson.meta.breakingCount} size="lg" />
+      <div className="relative mt-7 flex items-center gap-4">
+        <Badge
+          tone={lesson.meta.verdict === "behavioral" ? "modified" : "safe"}
+          className="rounded-md px-3 py-1.5 text-base"
+        >
+          {lesson.meta.verdict === "behavioral" ? "behavioral change" : "refactor-only"}
+        </Badge>
+        {lesson.meta.breakingCount > 0 && (
+          <Badge tone="breaking" className="rounded-md px-3 py-1.5 text-base">
+            {lesson.meta.breakingCount} breaking
+          </Badge>
+        )}
       </div>
       <div className="relative mt-auto flex items-end gap-14">
         {stats.map(([n, label]) => (

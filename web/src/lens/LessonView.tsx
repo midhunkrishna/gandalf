@@ -2,12 +2,12 @@ import { lazy, Suspense, useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import { Loader2, ChevronUp, ChevronDown, GitCommitHorizontal, MoveRight } from "lucide-react";
 import type { LessonBundle } from "@engine/core/schemas.ts";
+import { Badge } from "@/ui/badge.tsx";
 import { cn } from "@/lib/cn.ts";
 import { Constellation } from "@/components/Constellation.tsx";
 import { shortRef } from "@/lib/refs.ts";
 import { CountUp } from "@/components/CountUp.tsx";
 import { ShareCardButton } from "@/components/ShareCard.tsx";
-import { VerdictStamp, BreakingStamp } from "@/components/VerdictStamp.tsx";
 import { DepthProvider } from "@/state/depth.tsx";
 import { QuizModeProvider } from "@/lib/quizMode.tsx";
 import { DepthSelector } from "@/components/DepthSelector.tsx";
@@ -112,8 +112,12 @@ export function LessonView({ lesson }: { lesson: LessonBundle }) {
                     {lesson.meta.title}
                   </h1>
                   <span className="flex shrink-0 items-center gap-2">
-                    <VerdictStamp verdict={lesson.meta.verdict} />
-                    <BreakingStamp count={lesson.meta.breakingCount} />
+                    <Badge tone={lesson.meta.verdict === "behavioral" ? "modified" : "safe"}>
+                      {lesson.meta.verdict === "behavioral" ? "behavioral change" : "refactor-only"}
+                    </Badge>
+                    {lesson.meta.breakingCount > 0 && (
+                      <Badge tone="breaking">{lesson.meta.breakingCount} breaking</Badge>
+                    )}
                   </span>
                 </div>
                 <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-ink">

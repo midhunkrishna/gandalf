@@ -1,5 +1,5 @@
 import type { LessonMeta } from "@engine/core/schemas.ts";
-import { VerdictStamp, BreakingStamp } from "./VerdictStamp.tsx";
+import { Badge } from "@/ui/badge.tsx";
 import { cn } from "@/lib/cn.ts";
 
 /**
@@ -52,8 +52,10 @@ export function LessonGallery({
                       {m.title}
                     </h2>
                     <div className="mt-auto flex items-center gap-2 pt-4">
-                      <VerdictStamp verdict={m.verdict} size="sm" />
-                      <BreakingStamp count={m.breakingCount} size="sm" />
+                      <Badge tone={m.verdict === "behavioral" ? "modified" : "safe"}>
+                        {m.verdict === "behavioral" ? "behavioral" : "refactor"}
+                      </Badge>
+                      {m.breakingCount > 0 && <Badge tone="breaking">{m.breakingCount} breaking</Badge>}
                     </div>
                   </button>
                 </li>
