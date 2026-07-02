@@ -1,5 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { classifyPath, isFormattingOnly } from "../src/core/noise.ts";
+import { classifyPath, isFormattingOnly, isPermanentIgnore } from "../src/core/noise.ts";
+
+describe("isPermanentIgnore", () => {
+  it("ignores gandalf's own artifacts anywhere in the tree", () => {
+    expect(isPermanentIgnore(".gandalf/lessons/diff-a-b/lesson.json")).toBe(true);
+    expect(isPermanentIgnore("sub/repo/.gandalf/lessons/x/lesson.json")).toBe(true);
+    expect(isPermanentIgnore(".gandalf")).toBe(true);
+  });
+  it("does not ignore look-alikes", () => {
+    expect(isPermanentIgnore("src/gandalf.ts")).toBe(false);
+    expect(isPermanentIgnore("docs/.gandalf.md")).toBe(false);
+    expect(isPermanentIgnore("a/gandalf/lesson.json")).toBe(false);
+  });
+});
 
 describe("classifyPath", () => {
   it("skips generated / lock / binary files", () => {

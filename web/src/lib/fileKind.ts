@@ -38,3 +38,10 @@ export function fileKind(path: string): FileKind {
 
 /** Non-code (config or generated) files are hidden by default. */
 export const isHidden = (path: string): boolean => fileKind(path) !== "code";
+
+/**
+ * gandalf's own artifacts are never shown, whatever the filter says. New
+ * lessons exclude them at generation time; this guards lessons generated
+ * before that rule existed.
+ */
+export const isPermanentlyHidden = (path: string): boolean => /(^|\/)\.gandalf(\/|$)/.test(path);

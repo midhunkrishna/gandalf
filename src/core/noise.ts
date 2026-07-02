@@ -17,6 +17,17 @@ const GENERATED_PATTERNS: RegExp[] = [
   /\.xcassets\//,
 ];
 
+/**
+ * Paths excluded from analysis entirely — never listed in a lesson, never fed
+ * into history metrics (churn/hotspots/coupling), never revealable in the
+ * viewer. gandalf's own artifacts must not analyze themselves.
+ */
+const PERMANENT_IGNORES: RegExp[] = [/(^|\/)\.gandalf(\/|$)/];
+
+export function isPermanentIgnore(path: string): boolean {
+  return PERMANENT_IGNORES.some((re) => re.test(path));
+}
+
 export interface NoiseVerdict {
   /** Exclude from per-file analysis entirely (still listed, collapsed). */
   skip: boolean;

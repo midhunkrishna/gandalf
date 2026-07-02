@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { isHidden } from "@/lib/fileKind.ts";
+import { isHidden, isPermanentlyHidden } from "@/lib/fileKind.ts";
 
 const KEY = "gandalf:show-all";
 
@@ -38,7 +38,7 @@ export function FileFilterProvider({ children }: { children: ReactNode }) {
       /* private mode — non-fatal */
     }
   };
-  const visible = (path: string) => showAll || !isHidden(path);
+  const visible = (path: string) => !isPermanentlyHidden(path) && (showAll || !isHidden(path));
   return <Ctx.Provider value={{ showAll, setShowAll, visible }}>{children}</Ctx.Provider>;
 }
 

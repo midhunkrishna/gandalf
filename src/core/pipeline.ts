@@ -7,7 +7,7 @@ import {
 } from "./git.ts";
 import { buildEvidence, evidenceForFile, type EvidenceBundle } from "./evidence.ts";
 import { normalizeModule, languageOf } from "./modules.ts";
-import { classifyPath, isFormattingOnly } from "./noise.ts";
+import { classifyPath, isFormattingOnly, isPermanentIgnore } from "./noise.ts";
 import { loadTickets, matchTicket, ticketIntent } from "./tickets.ts";
 import { claudeStructured, type ClaudeOptions, type ModelAlias } from "./claude.ts";
 import { filePassPrompt, synthesisPrompts, type Built, type PerFileSummary } from "./prompts.ts";
@@ -133,7 +133,8 @@ export async function generateLesson(opts: GenerateOptions): Promise<LessonBundl
   const toShort = await resolveRef(toRef, cwd);
 
   log(`Diffing ${fromShort} → ${toShort === WORKTREE ? "working tree" : toShort}…`);
-  const changed = await listChangedFiles(fromRef, toRef, cwd);
+  // Permanent ignores (.gandalf artifacts) never enter the lesson at all.
+  const changed = (await listChangedFiles(fromRef, toRef, cwd)).filter((c) => !isPermanentIgnore(c.path));
   if (changed.length === 0) throw new Error("No changes between the given refs.");
 
   // Build FileChange skeletons with blobs + noise classification.
