@@ -9,10 +9,15 @@ import { safetyTone } from "@/lib/concept.ts";
  * always visible; the answer half (after output, divergent state, GWT, safety) is gated behind
  * a prediction so the reader generates a guess first. Quiz mode off → answer shown immediately.
  */
-export function TraceCard({ card }: { card: TraceCardT }) {
+export function TraceCard({ card, index }: { card: TraceCardT; index?: number }) {
   return (
-    <div className="rounded-lg border border-line bg-surface p-4 shadow-sm">
-      <div className="mb-2.5 text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-muted-ink">
+    <div className="relative rounded-lg border border-line bg-surface p-4 shadow-sm">
+      {index != null && (
+        <span className="absolute right-3 top-2.5 font-display text-sm font-semibold text-muted-ink/60">
+          № {index}
+        </span>
+      )}
+      <div className="mb-2.5 text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-muted-ink">
         input
       </div>
       <div className="mb-3 rounded-md bg-surface-2 px-3 py-2 font-mono text-xs text-ink">
@@ -20,7 +25,7 @@ export function TraceCard({ card }: { card: TraceCardT }) {
       </div>
 
       <div className="mb-3 space-y-1">
-        <div className="text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-removed">before</div>
+        <div className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-removed">before</div>
         <div className="rounded-md border border-removed/20 bg-removed/5 p-2.5 text-sm leading-relaxed text-ink">
           {card.beforeOutput}
         </div>
@@ -42,7 +47,7 @@ export function TraceCard({ card }: { card: TraceCardT }) {
         <div className="space-y-3">
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-2">
-              <div className="text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-added">after</div>
+              <div className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-added">after</div>
               <Badge tone={safetyTone(card.safety)}>{card.safety}</Badge>
             </div>
             <div className="rounded-md border border-added/20 bg-added/5 p-2.5 text-sm leading-relaxed text-ink">
@@ -52,7 +57,7 @@ export function TraceCard({ card }: { card: TraceCardT }) {
 
           {card.divergentState.length > 0 && (
             <div className="space-y-1.5">
-              <div className="text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-muted-ink">
+              <div className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-muted-ink">
                 divergent state
               </div>
               {card.divergentState.map((d, i) => (

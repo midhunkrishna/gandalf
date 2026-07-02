@@ -5,6 +5,7 @@ import { fetchLesson } from "@/lib/loadLesson.ts";
 import { dueKeys, parseKey, recordReview, type Rating } from "@/lib/reviewStore.ts";
 import { Reveal } from "@/components/Reveal.tsx";
 import { cn } from "@/lib/cn.ts";
+import { DoodleAllClear } from "@/ui/doodles.tsx";
 
 interface DueQ {
   lessonId: string;
@@ -103,14 +104,14 @@ export function ReviewSession({ lessons, onClose }: { lessons: LessonMeta[]; onC
         {items === null ? (
           <p className="py-8 text-center text-sm text-muted-ink">Gathering due questions…</p>
         ) : items.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-ink">
-            Nothing due — you're caught up. Rate questions in a lesson's{" "}
-            <span className="font-medium text-ink">Recall</span> tab to schedule them.
-          </p>
+          <div className="space-y-3 py-8 text-center text-sm text-muted-ink">
+            <DoodleAllClear className="mx-auto h-14 w-[72px]" />
+            <p>All caught up. Questions come due here as lessons age.</p>
+          </div>
         ) : !cur ? (
           <div className="space-y-4 py-6 text-center">
             <Check className="mx-auto h-8 w-8 text-added" />
-            <p className="text-sm text-ink">Review complete — {items.length} question{items.length > 1 ? "s" : ""} done.</p>
+            <p className="text-sm text-ink">That's the queue. {items.length} question{items.length > 1 ? "s" : ""} reviewed.</p>
             <button
               onClick={onClose}
               className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-ink hover:bg-primary/90"
@@ -151,7 +152,7 @@ export function ReviewSession({ lessons, onClose }: { lessons: LessonMeta[]; onC
                   </div>
                 )}
                 <div className="flex items-center gap-2 border-t border-line pt-3">
-                  <span className="text-[0.7rem] uppercase tracking-[0.1em] text-muted-ink">Schedule next:</span>
+                  <span className="text-[0.7rem] uppercase tracking-[0.12em] text-muted-ink">Schedule next:</span>
                   {RATINGS.map(([r, label]) => (
                     <button
                       key={r}

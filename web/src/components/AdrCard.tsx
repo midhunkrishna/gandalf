@@ -1,13 +1,17 @@
 import type { Adr } from "@engine/core/schemas.ts";
 
-/** ADR with "Considered Options" — chosen approach + alternatives, value-neutral. */
+/**
+ * ADR with "Considered Options" — chosen approach + alternatives, value-neutral.
+ * Styled as a filed record: a folder tab sits above the card.
+ */
 export function AdrCard({ adr }: { adr: Adr }) {
   return (
-    <div className="space-y-4 rounded-lg border border-line bg-surface p-5">
-      <div>
-        <div className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-ink">Decision</div>
-        <h3 className="font-display text-lg font-semibold text-ink">{adr.title}</h3>
+    <div>
+      <div className="inline-flex items-center rounded-t-md border border-b-0 border-line bg-surface px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-muted-ink">
+        Architecture decision
       </div>
+      <div className="space-y-4 rounded-lg rounded-tl-none border border-line bg-surface p-5">
+      <h3 className="font-display text-lg font-semibold text-ink">{adr.title}</h3>
       <p className="text-sm leading-relaxed text-ink">
         <span className="font-medium text-muted-ink">Context. </span>
         {adr.context}
@@ -18,7 +22,7 @@ export function AdrCard({ adr }: { adr: Adr }) {
       </p>
       {adr.consequences.length > 0 && (
         <div>
-          <div className="mb-1 text-xs font-semibold uppercase tracking-[0.1em] text-muted-ink">
+          <div className="mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted-ink">
             Consequences
           </div>
           <ul className="list-disc space-y-0.5 pl-5 text-sm text-ink">
@@ -30,7 +34,7 @@ export function AdrCard({ adr }: { adr: Adr }) {
       )}
       {adr.options.length > 0 && (
         <div className="space-y-2">
-          <div className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-ink">
+          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-ink">
             Considered options
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -59,6 +63,7 @@ export function AdrCard({ adr }: { adr: Adr }) {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

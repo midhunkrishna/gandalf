@@ -19,7 +19,7 @@ function QuestionCard({ q, lessonId, index }: { q: RetrievalQuestion; lessonId: 
   return (
     <div className="rounded-lg border border-line bg-surface p-4">
       <div className="mb-2 flex items-center gap-2">
-        <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[0.7rem] font-medium uppercase tracking-[0.08em] text-muted-ink">
+        <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[0.7rem] font-medium uppercase tracking-[0.12em] text-muted-ink">
           {q.lens}
         </span>
         <span className="text-[0.7rem] text-muted-ink">question {index + 1}</span>
@@ -52,7 +52,7 @@ function QuestionCard({ q, lessonId, index }: { q: RetrievalQuestion; lessonId: 
             </div>
           )}
           <div className="flex items-center gap-2 border-t border-line pt-2.5">
-            <span className="text-[0.7rem] uppercase tracking-[0.1em] text-muted-ink">How did you do?</span>
+            <span className="text-[0.7rem] uppercase tracking-[0.12em] text-muted-ink">How did you do?</span>
             <div className="flex gap-1.5">
               {RATINGS.map(([r, label]) => (
                 <button
@@ -88,9 +88,9 @@ export function RecallPanel({ lesson }: { lesson: LessonBundle }) {
       <header className="space-y-2">
         <h2 className="text-2xl">Recall</h2>
         <p className="max-w-prose text-sm leading-relaxed text-muted-ink">
-          Retrieving from memory beats re-reading — it's the single best-evidenced way to make this
-          change stick. Answer each from memory first, then reveal and rate yourself; ratings seed the
-          spaced <span className="font-medium text-ink">Review</span> queue.
+          Answer from memory before you peek. Retrieval is what makes a lesson stick, and your
+          self-rating decides when each question comes back around in the{" "}
+          <span className="font-medium text-ink">Review</span> queue.
         </p>
       </header>
 

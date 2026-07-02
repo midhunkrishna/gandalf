@@ -3,8 +3,7 @@ import { Badge } from "@/ui/badge.tsx";
 import { TraceCard } from "@/components/TraceCard.tsx";
 import { TieredExplanation } from "@/components/TieredExplanation.tsx";
 import { Reveal } from "@/components/Reveal.tsx";
-
-const H3 = "text-xs font-semibold uppercase tracking-[0.12em] text-muted-ink";
+import { SectionHeading } from "@/ui/SectionHeading.tsx";
 
 export function BehavioralLens({ lesson }: { lesson: LessonBundle }) {
   const b = lesson.behavioral;
@@ -25,16 +24,13 @@ export function BehavioralLens({ lesson }: { lesson: LessonBundle }) {
 
       {b.traceCards.length > 0 && (
         <section className="space-y-3">
-          <h3 className={H3}>
-            Worked examples{" "}
-            <span className="font-normal normal-case tracking-normal text-muted-ink">
-              — illustrative, reasoned from code (not executed)
-            </span>
-          </h3>
+          <SectionHeading hint="reasoned from the code, never executed; treat them as illustrations">
+            Worked examples
+          </SectionHeading>
           <div className="grid gap-4 lg:grid-cols-2">
             {b.traceCards.map((c, i) => (
               <Reveal key={i} delay={i * 0.06}>
-                <TraceCard card={c} />
+                <TraceCard card={c} index={i + 1} />
               </Reveal>
             ))}
           </div>
@@ -43,14 +39,14 @@ export function BehavioralLens({ lesson }: { lesson: LessonBundle }) {
 
       {b.workedExample && (
         <section className="space-y-2">
-          <h3 className={H3}>Walkthrough</h3>
+          <SectionHeading>In practice</SectionHeading>
           <p className="max-w-prose text-sm leading-relaxed text-ink">{b.workedExample}</p>
         </section>
       )}
 
       {b.ripple.length > 0 && (
         <Reveal as="section" className="space-y-2">
-          <h3 className={H3}>What could break (ripple)</h3>
+          <SectionHeading hint="callers touched by each changed symbol">What could break</SectionHeading>
           <ul className="space-y-2">
             {b.ripple.map((r, i) => (
               <li key={i} className="rounded-md border border-line bg-surface p-3 text-sm">

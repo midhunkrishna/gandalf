@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { MotionConfig } from "framer-motion";
-import { Moon, Sun, GitBranch, Brain, FileCog } from "lucide-react";
+import { Moon, Sun, Brain, FileCog } from "lucide-react";
+import { BrandMark } from "@/ui/BrandMark.tsx";
 import type { LessonBundle, LessonMeta } from "@engine/core/schemas.ts";
 import { Button } from "@/ui/button.tsx";
 import { Badge } from "@/ui/badge.tsx";
@@ -83,9 +84,9 @@ export function App() {
     <div className="flex h-screen flex-col overflow-hidden">
       <header className="flex shrink-0 items-center justify-between border-b border-line bg-bg px-6 py-3">
         <div className="flex items-center gap-2.5">
-          <GitBranch className="h-5 w-5 text-primary" strokeWidth={2} />
+          <BrandMark className="h-5 w-5 text-primary" />
           <span className="font-display text-lg font-semibold">gandalf</span>
-          <Badge tone="primary" className="ml-1">preview</Badge>
+          <Badge tone="neutral" className="ml-1 font-mono">v0.1</Badge>
         </div>
         <div className="flex items-center gap-2">
           {view === "lesson" && (
@@ -98,8 +99,8 @@ export function App() {
                   aria-label={showAll ? "Hide config & generated files" : `Show ${hiddenCount} config & generated files`}
                   title={
                     showAll
-                      ? "Hiding config/generated files (click to hide)"
-                      : `${hiddenCount} config/generated file${hiddenCount > 1 ? "s" : ""} hidden — click to show`
+                      ? "Showing config and generated files too"
+                      : `${hiddenCount} config file${hiddenCount > 1 ? "s" : ""} tucked away. Click to show them`
                   }
                   className={cn(
                     "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm transition-colors duration-fast",

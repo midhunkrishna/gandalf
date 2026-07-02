@@ -3,8 +3,7 @@ import { Badge } from "@/ui/badge.tsx";
 import { Reveal } from "@/components/Reveal.tsx";
 import { statusTone } from "@/lib/concept.ts";
 import { useFileFilter } from "@/lib/fileFilter.tsx";
-
-const H3 = "text-xs font-semibold uppercase tracking-[0.12em] text-muted-ink";
+import { SectionHeading } from "@/ui/SectionHeading.tsx";
 
 export function OverviewLens({ lesson }: { lesson: LessonBundle }) {
   const m = lesson.meta;
@@ -37,7 +36,7 @@ export function OverviewLens({ lesson }: { lesson: LessonBundle }) {
       </div>
 
       <Reveal as="section" className="space-y-2">
-        <h3 className={H3}>Changed files</h3>
+        <SectionHeading>Changed files</SectionHeading>
         <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
           {changed.map((f, i) => (
             <li key={i} className="flex items-center gap-2 px-3 py-2 text-sm">
@@ -56,12 +55,7 @@ export function OverviewLens({ lesson }: { lesson: LessonBundle }) {
 
       {hotspots.length > 0 && (
         <Reveal as="section" className="space-y-2">
-          <h3 className={H3}>
-            Hotspots{" "}
-            <span className="font-normal normal-case tracking-normal text-muted-ink">
-              — change-frequency × complexity
-            </span>
-          </h3>
+          <SectionHeading hint="how often a file changes, times how hard it reads">Hotspots</SectionHeading>
           <ul className="space-y-1.5">
             {hotspots.map((h, i) => (
               <li key={i} className="flex items-center gap-3 text-sm">

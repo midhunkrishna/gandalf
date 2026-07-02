@@ -1,6 +1,7 @@
 import type { LessonMeta } from "@engine/core/schemas.ts";
 import { Badge } from "@/ui/badge.tsx";
 import { cn } from "@/lib/cn.ts";
+import { NoLessons } from "@/ui/NoLessons.tsx";
 
 /**
  * Gallery landing page: the lesson library as a shelf of covers — verdict-
@@ -20,12 +21,10 @@ export function LessonGallery({
       <div className="mx-auto max-w-5xl px-6 py-10">
         <h1 className="font-display text-3xl">Lessons</h1>
         <p className="mt-1.5 text-sm text-muted-ink">
-          Every change, narrated — newest first.
+          The repo's story so far, newest chapter first.
         </p>
         {lessons.length === 0 ? (
-          <p className="mt-10 text-sm text-muted-ink">
-            No persisted lessons yet. Run <code className="font-mono text-xs">gandalf generate</code>.
-          </p>
+          <NoLessons className="mt-10 text-sm text-muted-ink" />
         ) : (
           <ol className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {lessons.map((m, i) => {

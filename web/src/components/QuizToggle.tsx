@@ -13,8 +13,8 @@ export function QuizToggle() {
       aria-label="Predict-then-reveal quiz mode"
       title={
         quiz
-          ? "Quiz mode on — answers stay hidden until you predict"
-          : "Quiz mode off — answers shown immediately"
+          ? "Quiz on: predict first, then the answer shows"
+          : "Quiz off: answers show right away"
       }
       className={cn(
         "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors duration-fast",

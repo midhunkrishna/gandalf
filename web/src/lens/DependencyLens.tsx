@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { MousePointerClick, Maximize2, Minimize2, Columns2, Rows2 } from "lucide-react";
+import { Maximize2, Minimize2, Columns2, Rows2 } from "lucide-react";
 import type { LessonBundle, FileChange, ModuleGraphDelta } from "@engine/core/schemas.ts";
 import { normalizeModule } from "@engine/core/modules.ts";
 import { Badge } from "@/ui/badge.tsx";
@@ -9,6 +9,8 @@ import { CodePanel } from "@/components/CodePanel.tsx";
 import { TieredExplanation } from "@/components/TieredExplanation.tsx";
 import { safetyTone } from "@/lib/concept.ts";
 import { useFileFilter } from "@/lib/fileFilter.tsx";
+import { SectionHeading } from "@/ui/SectionHeading.tsx";
+import { DoodleGraph } from "@/ui/doodles.tsx";
 import { cn } from "@/lib/cn.ts";
 
 /**
@@ -125,14 +127,12 @@ export function DependencyLens({ lesson }: { lesson: LessonBundle }) {
         {!file ? (
           <div className="space-y-5 p-5">
             <div className="rounded-md border border-dashed border-line bg-surface/50 p-4 text-sm text-muted-ink">
-              <MousePointerClick className="mb-2 h-5 w-5 text-primary" />
-              Click a module in the graph to see what changed — before / after, the contract deltas,
-              and the diff. Drag the divider to widen this panel, or maximize it to hide the graph.
+              <DoodleGraph className="mb-3 h-14 w-24" />
+              Pick a module in the graph. This panel fills with its story: what it did before, what
+              it does now, which contracts moved, and the diff itself.
             </div>
             <section className="space-y-2">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-ink">
-                How the modules relate
-              </h2>
+              <SectionHeading>How the modules relate</SectionHeading>
               <TieredExplanation text={lesson.explanations.dependency} className="text-sm leading-relaxed text-ink" />
             </section>
           </div>
@@ -166,9 +166,7 @@ export function DependencyLens({ lesson }: { lesson: LessonBundle }) {
               <Tldr tldr={file.tldr} />
               {contracts.length > 0 && (
                 <section className="space-y-2">
-                  <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-ink">
-                    Contract changes
-                  </h2>
+                  <SectionHeading>Contract changes</SectionHeading>
                   <ul className="space-y-1.5">
                     {contracts.map((c) => (
                       <li key={c.symbol} className="flex items-center gap-2 text-sm">
@@ -184,7 +182,7 @@ export function DependencyLens({ lesson }: { lesson: LessonBundle }) {
 
             {/* Diff toolbar: pinned to the top of the scrolling panel, floats over the diff on scroll. */}
             <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-y border-line bg-bg/95 px-5 py-2 backdrop-blur">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-ink">Diff</h2>
+              <SectionHeading>Diff</SectionHeading>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setSplit((s) => !s)}

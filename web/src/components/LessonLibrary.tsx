@@ -4,6 +4,7 @@ import type { LessonMeta } from "@engine/core/schemas.ts";
 import { Button } from "@/ui/button.tsx";
 import { Badge } from "@/ui/badge.tsx";
 import { cn } from "@/lib/cn.ts";
+import { NoLessons } from "@/ui/NoLessons.tsx";
 
 /** Timeline dropdown of persisted lessons (newest first). */
 export function LessonLibrary({
@@ -36,9 +37,7 @@ export function LessonLibrary({
       {open && (
         <div className="absolute right-0 z-20 mt-1.5 max-h-[70vh] w-80 overflow-y-auto rounded-lg border border-line bg-bg p-1.5 shadow-lg">
           {lessons.length === 0 ? (
-            <div className="p-3 text-sm text-muted-ink">
-              No persisted lessons yet. Run <code className="font-mono text-xs">gandalf generate</code>.
-            </div>
+            <NoLessons className="p-3 text-sm text-muted-ink" />
           ) : (
             <ol className="space-y-0.5 pl-3">
               {lessons.map((m) => (

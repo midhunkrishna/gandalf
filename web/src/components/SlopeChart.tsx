@@ -24,7 +24,7 @@ export function SlopeChart({ data, metric }: { data: FnComplexity[]; metric: Met
   if (!rows.length) {
     return (
       <p className="text-sm text-muted-ink">
-        No {metric} data{metric === "cyclomatic" ? " (install `lizard` for measured cyclomatic complexity)" : ""}.
+        No {metric} numbers for this change{metric === "cyclomatic" ? " — install lizard to measure them" : ""}.
       </p>
     );
   }

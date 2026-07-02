@@ -12,7 +12,7 @@ export function Tldr({ tldr }: { tldr: TldrT }) {
       {ROWS.map(([label, key, tone]) => (
         <div key={key} className="rounded-md border border-line bg-surface p-3">
           <div
-            className="mb-1 flex items-center gap-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.1em]"
+            className="mb-1 flex items-center gap-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.12em]"
             style={{ color: `hsl(var(--${tone}))` }}
           >
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: `hsl(var(--${tone}))` }} />

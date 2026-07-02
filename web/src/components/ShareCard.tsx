@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toPng } from "html-to-image";
-import { GitBranch, ImageDown, Loader2 } from "lucide-react";
+import { ImageDown, Loader2 } from "lucide-react";
+import { BrandMark } from "@/ui/BrandMark.tsx";
 import type { FileChange, LessonBundle } from "@engine/core/schemas.ts";
 import { Badge } from "@/ui/badge.tsx";
 import { parseUnifiedDiff, type DiffRow } from "@/lib/parseDiff.ts";
@@ -138,7 +139,7 @@ function Card({
     >
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-2.5">
-          <GitBranch className="h-6 w-6 text-primary" strokeWidth={2} />
+          <BrandMark className="h-6 w-6 text-primary" />
           <span className="font-display text-2xl font-semibold">gandalf</span>
         </span>
         <span className="font-mono text-sm text-muted-ink">{excerpt?.file.path ?? lesson.meta.title}</span>

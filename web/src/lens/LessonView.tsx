@@ -102,7 +102,7 @@ export function LessonView({ lesson }: { lesson: LessonBundle }) {
                 <button
                   onClick={() => setHero(true)}
                   aria-label="Collapse header"
-                  title="Collapse — give the tabs more room"
+                  title="Tuck the header away"
                   className={cn(iconBtn, "absolute right-4 top-0")}
                 >
                   <ChevronUp className="h-4 w-4" />
@@ -154,7 +154,7 @@ export function LessonView({ lesson }: { lesson: LessonBundle }) {
                   <button
                     onClick={() => setHero(false)}
                     aria-label="Expand header"
-                    title="Show the lesson title & summary"
+                    title="Bring the header back"
                     className={iconBtn}
                   >
                     <ChevronDown className="h-4 w-4" />

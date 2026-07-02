@@ -74,7 +74,7 @@ export function PredictReveal({
             )}
           >
             {picked === answer ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
-            {picked === answer ? "You predicted correctly." : "Not quite — here's the actual result."}
+            {picked === answer ? "You predicted correctly." : "Not quite. Here's what actually happens."}
           </div>
         )}
         {guess.trim() && (

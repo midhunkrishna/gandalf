@@ -119,7 +119,7 @@ export function WalkthroughLens({ lesson }: { lesson: LessonBundle }) {
 
         {scenes.length === 0 ? (
           <p className="mx-auto max-w-3xl px-8 pb-24 text-center text-sm text-muted-ink">
-            No focal code regions to walk through in this change.
+            This change has no focal lines to walk through.
           </p>
         ) : (
           <div className="relative mx-auto flex max-w-6xl gap-10 px-8">

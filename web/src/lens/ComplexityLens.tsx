@@ -5,8 +5,8 @@ import { SlopeChart } from "@/components/SlopeChart.tsx";
 import { Treemap } from "@/components/Treemap.tsx";
 import { Reveal } from "@/components/Reveal.tsx";
 import { useFileFilter } from "@/lib/fileFilter.tsx";
+import { SectionHeading } from "@/ui/SectionHeading.tsx";
 
-const H3 = "text-xs font-semibold uppercase tracking-[0.12em] text-muted-ink";
 const base = (p: string) => p.split("/").pop() ?? p;
 
 function DeltaCard({ label, value }: { label: string; value: number }) {
@@ -57,9 +57,9 @@ export function ComplexityLens({ lesson }: { lesson: LessonBundle }) {
       <header className="space-y-2">
         <h2 className="text-2xl">Complexity</h2>
         <p className="max-w-prose text-sm leading-relaxed text-muted-ink">
-          Cognitive complexity (SonarSource) tracks how hard code is to <em>read</em>; cyclomatic
-          counts independent paths. A wide <code className="font-mono">switch</code> can be
-          high-cyclomatic but low-cognitive; deep nesting is the reverse.
+          Two rulers here. Cognitive complexity measures how hard code is to <em>read</em>.
+          Cyclomatic counts independent paths. A wide <code className="font-mono">switch</code>{" "}
+          scores high on the second and low on the first. Deep nesting flips it.
         </p>
       </header>
 
@@ -77,25 +77,20 @@ export function ComplexityLens({ lesson }: { lesson: LessonBundle }) {
       </div>
 
       <Reveal as="section" className="space-y-3">
-        <h3 className={H3}>Per-function — cognitive (before → after)</h3>
+        <SectionHeading hint="per function, before and after">Cognitive complexity</SectionHeading>
         <SlopeChart data={perFunction} metric="cognitive" />
       </Reveal>
 
       {hasCyclomatic && (
         <Reveal as="section" className="space-y-3">
-          <h3 className={H3}>Per-function — cyclomatic (before → after)</h3>
+          <SectionHeading hint="per function, before and after">Cyclomatic complexity</SectionHeading>
           <SlopeChart data={perFunction} metric="cyclomatic" />
         </Reveal>
       )}
 
       {hotspots.length > 0 && (
         <Reveal as="section" className="space-y-2">
-          <h3 className={H3}>
-            Hotspot map{" "}
-            <span className="font-normal normal-case tracking-normal text-muted-ink">
-              — area = churn, intensity = complexity
-            </span>
-          </h3>
+          <SectionHeading hint="bigger tiles churn more, darker tiles read harder">Hotspot map</SectionHeading>
           <div className="rounded-lg border border-line bg-surface p-3">
             <Treemap hotspots={hotspots} />
           </div>
@@ -104,12 +99,7 @@ export function ComplexityLens({ lesson }: { lesson: LessonBundle }) {
 
       {coupling.length > 0 && (
         <Reveal as="section" className="space-y-2">
-          <h3 className={H3}>
-            Change coupling{" "}
-            <span className="font-normal normal-case tracking-normal text-muted-ink">
-              — files that historically change together
-            </span>
-          </h3>
+          <SectionHeading hint="files that history says change together">Change coupling</SectionHeading>
           <ul className="space-y-1.5">
             {coupling.map((cp, i) => (
               <li key={i} className="flex items-center gap-2 text-sm">

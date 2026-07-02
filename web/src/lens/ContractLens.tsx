@@ -14,8 +14,8 @@ export function ContractLens({ lesson }: { lesson: LessonBundle }) {
         <h2 className="text-2xl">Contracts</h2>
         <TieredExplanation text={lesson.explanations.contract} />
         <p className="text-xs text-muted-ink">
-          Safety follows Design-by-Contract: weakening a precondition or strengthening a
-          postcondition is safe; the reverse is breaking.
+          Design-by-Contract in one rule: a change that asks less of callers or promises
+          them more is safe. Asking more or promising less breaks them.
         </p>
       </header>
 

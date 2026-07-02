@@ -118,6 +118,34 @@
 }
 
 /*
+ * Inner-pane scrollbars, themed to the tokens. The app shell is overflow-hidden
+ * (nothing scrolls at page level), so these universal rules only ever style the
+ * inner panes: walkthrough, sidebars, diff tables, dropdowns, tab content.
+ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--line)) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--line));
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-ink) / 0.5);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/*
  * Dependency graph: signature look — staggered entrance, edge draw-on,
  * ripple halo pulse, and a status-hued glow in dark mode. The node sets
  * `--tone` inline to its status hue. All animation collapses to the final

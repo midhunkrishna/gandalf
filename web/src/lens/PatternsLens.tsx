@@ -3,7 +3,6 @@ import { Badge } from "@/ui/badge.tsx";
 import { AdrCard } from "@/components/AdrCard.tsx";
 import { Reveal } from "@/components/Reveal.tsx";
 
-const H3 = "text-xs font-semibold uppercase tracking-[0.12em] text-muted-ink";
 const base = (p: string) => p.split("/").pop() ?? p;
 
 function statusTone(s: PatternFinding["status"]): "added" | "removed" | "neutral" {
@@ -17,8 +16,8 @@ export function PatternsLens({ lesson }: { lesson: LessonBundle }) {
       <header className="space-y-2">
         <h2 className="text-2xl">Patterns &amp; smells</h2>
         <p className="max-w-prose text-sm leading-relaxed text-muted-ink">
-          Design/architecture patterns and code smells this change introduces or removes — each with
-          quoted evidence and a confidence level. Identified by Claude, grounded in the diff.
+          The patterns and smells this change introduces or removes. Every claim quotes its
+          evidence and carries a confidence level.
         </p>
       </header>
 
@@ -51,8 +50,7 @@ export function PatternsLens({ lesson }: { lesson: LessonBundle }) {
       )}
 
       {p.adr && (
-        <Reveal as="section" className="space-y-3">
-          <h3 className={H3}>Architecture decision</h3>
+        <Reveal as="section">
           <AdrCard adr={p.adr} />
         </Reveal>
       )}

@@ -90,7 +90,7 @@ export function CodePanel({ file, split = false }: { file: FileChange; split?: b
   }, [hunks, file.language, dark]);
 
   if (hunks.length === 0) {
-    return <p className="px-1 text-sm text-muted-ink">No textual diff for this file.</p>;
+    return <p className="px-1 text-sm text-muted-ink">No text diff for this file.</p>;
   }
 
   const isBeacon = (r: DiffRow | null) => r?.afterNo != null && beaconLines.has(r.afterNo);
