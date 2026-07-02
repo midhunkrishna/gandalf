@@ -97,6 +97,15 @@ Open the printed URL. The viewer lists every persisted lesson (newest first) in 
 npm run gandalf -- list
 ```
 
+### Check lesson integrity
+
+```bash
+npm run gandalf -- doctor              # all lessons
+npm run gandalf -- doctor --lesson <id>
+```
+
+Reports cross-section drift (graph nodes that resolve to no file, contract/evidence references to unknown files, beacons past EOF, malformed diagrams). `generate` runs the same check automatically and prints warnings. Exit code 1 when errors are found.
+
 ### Export a self-contained lesson
 
 ```bash
@@ -133,7 +142,9 @@ Open a lesson in `gandalf serve`. Each lesson is a set of **lenses** (tabs), pre
 - **Maximize / Split** (Dependencies) — make the diff full-width, or switch to a GitHub-style before|after split.
 - **Maximize** (Mermaid diagrams) — open a pan/zoom overlay (scroll to zoom, drag to pan).
 - **Collapse hero** (chevron) — hide the title block to give the lenses more vertical room.
-- **Dark mode** and the **Lessons** timeline live in the header.
+- **Dark mode** and the **Lessons** timeline live in the header (theme + depth tier persist).
+- **Library** (header toggle) — a gallery landing page of every lesson as a cover card; click to open.
+- **Share card** (in the lesson hero) — downloads a 1200×630 branded PNG of the lesson for posting.
 - **Esc** resets any non-default view state (closes the diagram zoom, un-maximizes the diff).
 
 > **Honesty note:** Trace Cards are reasoned from the code, **not executed** — they're labelled "illustrative." Every pattern/behavior claim carries quoted-line evidence and a confidence level.
@@ -167,7 +178,7 @@ Notes:
 ### Layout
 
 ```
-bin/gandalf.ts        # commander CLI: generate | serve | build | list
+bin/gandalf.ts        # commander CLI: generate | serve | build | list | doctor
 src/core/             # engine: git · evidence · noise · tickets · claude · schemas · prompts · pipeline · lesson
 src/server/serve.ts   # Hono server: static viewer + lesson API
 web/                  # the React + Vite viewer (lenses, components, design tokens)
@@ -181,11 +192,9 @@ scripts/              # Playwright visual-sanity harnesses
 npm run dev                       # Vite dev viewer (uses a bundled sample lesson; no server needed)
 npm run typecheck                 # engine (tsc)
 npm run typecheck:web             # viewer (tsc)
-npx vitest run --root . test/     # engine unit tests (modules / noise / tickets)
+npm test                          # engine + lib unit tests (modules / noise / tickets / validate / claude shim / diff parser)
 npm run build:web                 # production build of the viewer
 ```
-
-> Note: the bare `npm test` is scoped to the `web/` Vite root and won't pick up `test/` — use the `npx vitest run --root . test/` command above for the engine tests.
 
 The `scripts/*.mjs` Playwright harnesses screenshot the running viewer for visual review (they expect a `gandalf serve` instance and use the system Chrome).
 
