@@ -11,6 +11,7 @@ import { safetyTone } from "@/lib/concept.ts";
 import { useFileFilter } from "@/lib/fileFilter.tsx";
 import { SectionHeading } from "@/ui/SectionHeading.tsx";
 import { DoodleGraph } from "@/ui/doodles.tsx";
+import { useRoute, navigate } from "@/lib/router.ts";
 import { cn } from "@/lib/cn.ts";
 
 /**
@@ -43,7 +44,10 @@ const toolBtn =
   "rounded-md border border-line p-1 text-muted-ink transition-colors duration-fast hover:border-primary/50 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
 
 export function DependencyLens({ lesson }: { lesson: LessonBundle }) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The URL owns the selected node (deep-linkable); replace-mode keeps
+  // graph-clicking from flooding the history.
+  const selectedId = useRoute().node;
+  const setSelectedId = (id: string | null) => navigate({ node: id }, { replace: true });
   const [sidebarWidth, setSidebarWidth] = useState(460);
   const [maximized, setMaximized] = useState(false);
   const [split, setSplit] = useState(false);

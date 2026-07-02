@@ -20,6 +20,7 @@ import { DataFlowLens } from "@/lens/DataFlowLens.tsx";
 import { ComplexityLens } from "@/lens/ComplexityLens.tsx";
 import { PatternsLens } from "@/lens/PatternsLens.tsx";
 import { RecallPanel } from "@/components/RecallPanel.tsx";
+import { useRoute, navigate, type Tab } from "@/lib/router.ts";
 
 // Lazy-loaded: pulls in Shiki + Lenis only when the walkthrough is opened.
 const WalkthroughLens = lazy(() =>
@@ -71,8 +72,9 @@ function heroInit(): boolean {
 }
 
 export function LessonView({ lesson }: { lesson: LessonBundle }) {
-  // Overview first — Shneiderman's mantra: overview, then zoom & filter, then details.
-  const [tab, setTab] = useState("overview");
+  // The URL owns the active tab (default overview — Shneiderman's mantra).
+  const tab = useRoute().tab;
+  const setTab = (t: string) => navigate({ tab: t as Tab, node: null });
   const [heroCollapsed, setHeroCollapsed] = useState<boolean>(heroInit);
   const setHero = (v: boolean) => {
     setHeroCollapsed(v);

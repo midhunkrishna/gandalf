@@ -15,8 +15,7 @@ import { fallbackLesson, fetchLesson, fetchLessonList } from "@/lib/loadLesson.t
 import { dueCount as countDue, registerQuestions } from "@/lib/reviewStore.ts";
 import { useFileFilter } from "@/lib/fileFilter.tsx";
 import { isHidden } from "@/lib/fileKind.ts";
-
-type View = "lesson" | "library" | "tokens";
+import { useRoute, navigate } from "@/lib/router.ts";
 
 function darkInit(): boolean {
   try {
@@ -29,10 +28,10 @@ function darkInit(): boolean {
 }
 
 export function App() {
+  const route = useRoute();
+  const view = route.view;
   const [dark, setDark] = useState(darkInit);
-  const [view, setView] = useState<View>("lesson");
   const [lesson, setLesson] = useState<LessonBundle>(fallbackLesson);
-  const [currentId, setCurrentId] = useState<string | null>(fallbackLesson.meta.id);
   const [library, setLibrary] = useState<LessonMeta[]>([]);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [dueN, setDueN] = useState(0);
@@ -40,13 +39,26 @@ export function App() {
   const hiddenCount = useMemo(() => lesson.files.filter((f) => isHidden(f.path)).length, [lesson]);
 
   useEffect(() => {
-    fetchLesson().then((l) => {
-      setLesson(l);
-      setCurrentId(l.meta.id);
-    });
     fetchLessonList().then(setLibrary);
     setDueN(countDue());
   }, []);
+
+  // The URL owns which lesson is open. Fetch on change; when the loader fell
+  // back (no id yet, bad id, offline export), canonicalize the URL in place.
+  useEffect(() => {
+    let cancelled = false;
+    fetchLesson(route.lessonId ?? undefined).then((l) => {
+      if (cancelled) return;
+      setLesson(l);
+      if (route.view === "lesson" && l.meta.id !== route.lessonId) {
+        navigate({ lessonId: l.meta.id }, { replace: true });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.lessonId]);
 
   // Apply + persist the theme; seed the review queue with this lesson's questions.
   useEffect(() => {
@@ -69,10 +81,7 @@ export function App() {
   }
 
   function selectLesson(id: string) {
-    fetchLesson(id).then((l) => {
-      setLesson(l);
-      setCurrentId(l.meta.id);
-    });
+    navigate({ view: "lesson", lessonId: id, node: null });
   }
 
   function toggleDark() {
@@ -129,7 +138,7 @@ export function App() {
               </button>
               <LessonLibrary
                 lessons={library.length ? library : [lesson.meta]}
-                currentId={currentId}
+                currentId={lesson.meta.id}
                 onSelect={selectLesson}
               />
             </>
@@ -138,7 +147,9 @@ export function App() {
             {(["lesson", "library", "tokens"] as const).map((v) => (
               <button
                 key={v}
-                onClick={() => setView(v)}
+                onClick={() =>
+                  navigate(v === "lesson" ? { view: v, lessonId: lesson.meta.id } : { view: v })
+                }
                 className={cn(
                   "rounded-sm px-2.5 py-1 text-sm capitalize transition-colors duration-fast",
                   view === v ? "bg-surface-2 text-ink shadow-xs" : "text-muted-ink hover:text-ink",
@@ -165,11 +176,8 @@ export function App() {
       ) : view === "library" ? (
         <LessonGallery
           lessons={library.length ? library : [lesson.meta]}
-          currentId={currentId}
-          onSelect={(id) => {
-            selectLesson(id);
-            setView("lesson");
-          }}
+          currentId={lesson.meta.id}
+          onSelect={selectLesson}
         />
       ) : (
         <div className="flex-1 overflow-y-auto">
