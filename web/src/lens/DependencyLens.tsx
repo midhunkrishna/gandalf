@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { MousePointerClick, Maximize2, Minimize2, Columns2, Rows2 } from "lucide-react";
 import type { LessonBundle, FileChange, ModuleGraphDelta } from "@engine/core/schemas.ts";
+import { normalizeModule } from "@engine/core/modules.ts";
 import { Badge } from "@/ui/badge.tsx";
 import { DependencyGraph } from "@/components/DependencyGraph.tsx";
 import { Tldr } from "@/components/Tldr.tsx";
@@ -16,7 +17,18 @@ function fileForNode(lesson: LessonBundle, nodeId: string | null): FileChange | 
   if (direct) return direct;
   const node = lesson.graph.nodes.find((n) => n.id === nodeId);
   if (!node) return null;
-  return lesson.files.find((f) => f.path === node.module || f.module === node.module) ?? null;
+  // node.module comes from LLM synthesis and doesn't always match the
+  // deterministic file.module taxonomy — fall back from exact equality to
+  // basename / path-prefix / normalized-module matches, most specific first.
+  const stem = (p: string) => p.split("/").pop()!.replace(/\.[^.]+$/, "");
+  return (
+    lesson.files.find((f) => f.path === node.module) ??
+    lesson.files.find((f) => stem(f.path) === node.id) ??
+    lesson.files.find((f) => f.path.startsWith(`${node.module}/`)) ??
+    lesson.files.find((f) => f.module === node.module) ??
+    lesson.files.find((f) => f.module === normalizeModule(node.module)) ??
+    null
+  );
 }
 
 const LEGEND = ["added", "removed", "modified", "unchanged"] as const;
