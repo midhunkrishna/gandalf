@@ -74,6 +74,17 @@ export function DependencyLens({ lesson }: { lesson: LessonBundle }) {
   const [fileIdx, setFileIdx] = useState(0);
   useEffect(() => setFileIdx(0), [selectedId]);
   const file = nodeFiles[Math.min(fileIdx, nodeFiles.length - 1)] ?? null;
+
+  // When the selection is a file path (a contract jump), highlight the graph
+  // node that owns that file — the sidebar stays exact, the graph shows home.
+  const graphSelectedId = useMemo(() => {
+    if (!selectedId) return null;
+    if (lesson.graph.nodes.some((n) => n.id === selectedId)) return selectedId;
+    const owner = lesson.graph.nodes.find((n) =>
+      filesForNode(lesson, n.id).some((f) => f.path === selectedId),
+    );
+    return owner?.id ?? null;
+  }, [lesson, selectedId]);
   const contracts = useMemo(
     () => (file ? lesson.contracts.filter((c) => c.file === file.path) : []),
     [lesson, file],
@@ -111,7 +122,7 @@ export function DependencyLens({ lesson }: { lesson: LessonBundle }) {
       {!maximized && (
         <>
           <div className="relative min-w-0 flex-1">
-            <DependencyGraph graph={graph} selectedId={selectedId} onSelect={setSelectedId} />
+            <DependencyGraph graph={graph} selectedId={graphSelectedId} onSelect={setSelectedId} />
             <div className="pointer-events-none absolute bottom-3 left-3 flex gap-3 rounded-md border border-line bg-bg/85 px-3 py-1.5 text-[0.7rem] shadow-sm backdrop-blur">
               {LEGEND.map((tone) => (
                 <span key={tone} className="flex items-center gap-1 text-muted-ink">
