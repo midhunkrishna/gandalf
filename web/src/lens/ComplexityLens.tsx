@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
-import type { FnComplexity, LessonBundle } from "@engine/core/schemas.ts";
+import type { LessonBundle } from "@engine/core/schemas.ts";
+import { deltaScorecard } from "@/lib/complexity.ts";
 import { SlopeChart } from "@/components/SlopeChart.tsx";
 import { Treemap } from "@/components/Treemap.tsx";
 import { Reveal } from "@/components/Reveal.tsx";
@@ -26,16 +27,6 @@ function DeltaCard({ label, value }: { label: string; value: number }) {
       </div>
     </div>
   );
-}
-
-function deltaScorecard(rows: FnComplexity[]) {
-  const sum = (sel: (p: FnComplexity) => number | null) => rows.reduce((a, p) => a + (sel(p) ?? 0), 0);
-  return {
-    deltaCyclomatic: sum((p) => p.cyclomaticAfter) - sum((p) => p.cyclomaticBefore),
-    deltaCognitive: sum((p) => p.cognitiveAfter) - sum((p) => p.cognitiveBefore),
-    deltaNesting: sum((p) => p.nestingAfter) - sum((p) => p.nestingBefore),
-    deltaLoc: sum((p) => p.locAfter) - sum((p) => p.locBefore),
-  };
 }
 
 export function ComplexityLens({ lesson }: { lesson: LessonBundle }) {
