@@ -43,11 +43,103 @@ export async function repoRoot(cwd: string): Promise<string> {
   return stdout.trim();
 }
 
+/**
+ * The repository's root (first) commit — an identity that survives moving or
+ * renaming the project directory, used to key home-dir lesson stores.
+ * Returns null for a repo with no commits yet. If orphan-branch merges give
+ * the repo several roots, the lexicographically first is used so the key
+ * never flips between invocations.
+ */
+export async function rootCommit(cwd: string): Promise<string | null> {
+  const { stdout, ok } = await runGit(["rev-list", "--max-parents=0", "HEAD"], cwd);
+  if (!ok) return null;
+  const roots = stdout.trim().split("\n").filter(Boolean).sort();
+  return roots[0] ?? null;
+}
+
 /** Resolve a symbolic ref to a short SHA for stable lesson IDs (WORKTREE passes through). */
 export async function resolveRef(ref: string, cwd: string): Promise<string> {
   if (ref === WORKTREE) return WORKTREE;
   const { stdout, ok } = await runGit(["rev-parse", "--short", ref], cwd);
   return ok ? stdout.trim() : ref;
+}
+
+// --- watch-mode helpers (full SHAs everywhere: short-sha length can change
+// --- as the repo grows and would corrupt journal frontier comparisons) -----
+
+/** Full SHA for a ref, or null when it doesn't resolve. */
+export async function revParse(ref: string, cwd: string): Promise<string | null> {
+  const { stdout, ok } = await runGit(["rev-parse", "--verify", `${ref}^{commit}`], cwd);
+  return ok ? stdout.trim() : null;
+}
+
+export async function commitExists(sha: string, cwd: string): Promise<boolean> {
+  const { ok } = await runGit(["cat-file", "-e", `${sha}^{commit}`], cwd);
+  return ok;
+}
+
+export async function isAncestor(ancestor: string, descendant: string, cwd: string): Promise<boolean> {
+  const { ok } = await runGit(["merge-base", "--is-ancestor", ancestor, descendant], cwd);
+  return ok;
+}
+
+export async function mergeBase(a: string, b: string, cwd: string): Promise<string | null> {
+  const { stdout, ok } = await runGit(["merge-base", a, b], cwd);
+  return ok ? stdout.trim() : null;
+}
+
+export async function isShallow(cwd: string): Promise<boolean> {
+  const { stdout, ok } = await runGit(["rev-parse", "--is-shallow-repository"], cwd);
+  return ok && stdout.trim() === "true";
+}
+
+export interface CommitInfo {
+  sha: string;
+  parents: string[];
+  subject: string;
+}
+
+/**
+ * First-parent commits in `base..head`, oldest first, with parents + subject.
+ * Uses NUL-separated `git log` fields so subjects with any punctuation parse.
+ */
+export async function firstParentLog(base: string, head: string, cwd: string): Promise<CommitInfo[]> {
+  const FIELD = "\u0000";
+  const RECORD = "\u0001";
+  const { stdout, ok } = await runGit(
+    ["log", "--first-parent", "--reverse", `--format=%H%x00%P%x00%s%x01`, `${base}..${head}`],
+    cwd,
+  );
+  if (!ok) return [];
+  const out: CommitInfo[] = [];
+  for (const chunk of stdout.split(RECORD)) {
+    const line = chunk.replace(/^\s+/, "");
+    if (!line.trim()) continue;
+    const [sha, parents, subject] = line.split(FIELD);
+    if (!sha) continue;
+    out.push({
+      sha: sha.trim(),
+      parents: (parents ?? "").trim().split(/\s+/).filter(Boolean),
+      subject: (subject ?? "").trim(),
+    });
+  }
+  return out;
+}
+
+/** True while a rebase/merge is in flight — watch holds off until HEAD settles. */
+export async function repoOperationInProgress(cwd: string): Promise<boolean> {
+  const { stdout, ok } = await runGit(
+    ["rev-parse", "--git-path", "rebase-merge", "--git-path", "rebase-apply", "--git-path", "MERGE_HEAD"],
+    cwd,
+  );
+  if (!ok) return false;
+  const { existsSync } = await import("node:fs");
+  const { isAbsolute, join: pjoin } = await import("node:path");
+  return stdout
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .some((p) => existsSync(isAbsolute(p) ? p : pjoin(cwd, p)));
 }
 
 function statusLetterToChange(letter: string): ChangeStatus {

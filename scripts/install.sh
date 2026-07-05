@@ -38,6 +38,13 @@ exec "\$GANDALF_HOME/node_modules/.bin/tsx" "\$GANDALF_HOME/bin/gandalf.ts" "\$@
 EOF
 chmod +x "$LAUNCHER"
 
+# Bootstrap the user-level config (~/.gandalf/config.yaml). ensureConfig() is
+# the single source of the documented template and never overwrites an
+# existing file — safe on re-install.
+echo "› Ensuring ~/.gandalf/config.yaml…"
+( cd "$GANDALF_HOME" && ./node_modules/.bin/tsx -e \
+  'import("./src/core/config.ts").then(async (c) => { const r = await c.ensureConfig(); console.log((r.created ? "✓ Created: " : "✓ Exists:  ") + r.path); })' )
+
 echo "✓ Installed: $LAUNCHER  →  $GANDALF_HOME/bin/gandalf.ts"
 case ":$PATH:" in
   *":$BIN_DIR:"*) echo "✓ $BIN_DIR is on PATH" ;;

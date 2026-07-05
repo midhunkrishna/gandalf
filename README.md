@@ -77,7 +77,7 @@ Generation drives several `claude -p` calls (per-file passes + a fan-out of focu
 | `--to <ref>` | *(working tree)* | target ref — omit to diff uncommitted changes |
 | `--ticket <id>` | — | force a ticket id for the intent overlay |
 | `--cwd <dir>` | current dir | repository to analyze |
-| `--out-dir <dir>` | `<repo>/.gandalf/lessons` | where to write the lesson |
+| `--out-dir <dir>` | *(configured location)* | where to write the lesson — overrides `lesson_location` (see Configuration) |
 | `--model-file <m>` | `sonnet` | model for per-file passes |
 | `--model-synth <m>` | `opus` | model for the synthesis passes |
 | `--concurrency <n>` | `4` | parallel per-file passes |
@@ -117,7 +117,67 @@ See [§4](#4-exporting-a-static-asset).
 
 ---
 
-## 3. Using / reading the lessons
+## 3. Configuration
+
+gandalf reads an optional user-level config from `~/.gandalf/config.yaml`
+(created by `scripts/install.sh`; never overwritten on re-install). The file is
+self-documenting — every key ships with an inline comment, and future keys ship
+commented-out (disabled). Delete any key (or the whole file) to fall back to the
+documented default. `GANDALF_HOME_DIR` relocates `~/.gandalf` (used by tests).
+
+| key | default | meaning |
+|---|---|---|
+| `lesson_location` | `"home-dir"` | Where lesson libraries live. `"home-dir"`: `~/.gandalf/<project-name>-<root-commit-sha12>/lessons` — lessons never touch the analyzed repo (no lesson commits, no working-tree writes). The store key uses the repo's root (first) commit, so it survives moving/renaming the project directory. `"project-wd"`: `<repo>/.gandalf/lessons` — the pre-config in-repo behavior. |
+
+Precedence everywhere: `--out-dir` flag > `lesson_location` > default.
+`gandalf doctor` prints the resolved config and store location for a repo.
+
+## 4. Watch mode
+
+Teach commits as they land, orthogonally to whatever produces them — open a
+side shell and leave it running:
+
+```bash
+gandalf watch --cwd <path-to-project>     # foreground; Ctrl-C to stop
+```
+
+The watcher polls `HEAD` (default every 5s), waits for a quiet period
+(debounce, default 5s; rebases/merges in progress are waited out), then teaches
+each new first-parent commit **serially, in commit order**. Progress and errors
+stream to stdout (`watch` defaults to `--log-level debug`).
+
+State lives in `watch-journal.json` beside the lesson store — never in the
+analyzed repo. One watcher per store (a lockfile enforces it).
+
+```bash
+gandalf watch --once                  # process the pending backlog, then exit (exit 1 if any failed)
+gandalf watch --once --retry-failed   # also re-attempt previously failed commits
+gandalf watch --status                # journal summary: frontier, counts, last failures
+gandalf watch --from HEAD~10          # first run only: backfill baseline (default: HEAD = future commits only)
+```
+
+Semantics worth knowing:
+
+- **Commit subjects like `E1-033: …` are parsed as ticket ids** (nicer lesson
+  ids + intent overlay); `--no-infer-ticket` disables.
+- **Skipped, not failed**: merge commits (unless `--include-merges`, then the
+  first-parent diff is taught), empty diffs, and commits touching only ignored
+  paths (`dist/`, lockfiles, `.gandalf/`, …).
+- **A failure is terminal**: the frontier advances so one bad commit never
+  wedges the watcher; `--retry-failed` re-enqueues failures explicitly
+  (re-generating overwrites that commit's lesson — intentional).
+- **Amend/rebase**: rewritten history is not re-taught; the watcher resumes
+  from the merge-base and records a `rewrite` event. Lessons for pre-rewrite
+  commits stay in the library (no pruning yet). With **no** common history
+  (or a shallow clone boundary) the baseline resets to HEAD with a warning —
+  gandalf never guesses.
+- **Cost valve**: a first plan with >25 pending commits refuses and asks for
+  `--max <n>` or `--from <ref>` — each lesson costs minutes of claude usage.
+- **Ctrl-C once** finishes the in-flight lesson (it is minutes of paid work);
+  **twice** aborts (exit 130). Note claude subprocesses have no abort plumbing:
+  detached/`nohup` use can orphan them — run watch in a foreground shell.
+
+## 5. Using / reading the lessons
 
 Open a lesson in `gandalf serve`. Each lesson is a set of **lenses** (tabs), presented top-down — overview → zoom & filter → details on demand.
 
@@ -153,7 +213,7 @@ Open a lesson in `gandalf serve`. Each lesson is a set of **lenses** (tabs), pre
 
 ---
 
-## 4. Exporting a static asset
+## 6. Exporting a static asset
 
 `gandalf build` inlines the viewer + a lesson into **one self-contained HTML file** that renders fully offline — no server, no network (fonts gracefully fall back to system fonts offline):
 
@@ -175,7 +235,7 @@ Notes:
 
 ---
 
-## 5. Contributing
+## 7. Contributing
 
 ### Layout
 
@@ -210,7 +270,7 @@ The `scripts/*.mjs` Playwright harnesses screenshot the running viewer for visua
 
 ---
 
-## 6. License
+## 8. License
 
 Released under the **MIT License** — see [`LICENSE`](./LICENSE).
 
