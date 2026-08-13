@@ -6,6 +6,8 @@ A raw `git diff` shows *what* changed line-by-line but loses the **behavioral "w
 
 Every metric is computed deterministically in Node and fed to Claude as ground truth (Claude interprets, never invents); every judgment is anchored to quoted lines.
 
+> **[See a sample lesson →](https://gandalf.midhunkrishna.in/lessons/datasette-escape-sqlite.html)** — generated from a Claude-co-authored commit in Simon Willison's [datasette](https://github.com/simonw/datasette) ([`591b909a`](https://github.com/simonw/datasette/commit/591b909a4d216ed76d3c775484df52b54e89dc74), *"Escape table names with [square] brackets"*). No install needed.
+
 > The techniques behind each format — and the program-comprehension, multimedia-learning, and retention research backing them — are documented in **[docs/RESEARCH.md](./docs/RESEARCH.md)**.
 
 ---
