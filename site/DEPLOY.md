@@ -1,11 +1,11 @@
 # Cloudflare deployment (Workers Builds, static assets)
 
-`site/` deploys to Cloudflare via Workers Builds Git integration —
+`site/` deploys to Cloudflare via Workers Builds Git integration:
 push-to-deploy, same setup as shaktiman.dev. The `wrangler.jsonc` at the repo
-root points `assets.directory` at `site/`; there is no Worker script — Cloudflare
-just serves the static files. The directory is **fully static**: the sample
+root points `assets.directory` at `site/`. There is no Worker script; Cloudflare
+just serves the static files. The directory is fully static: the sample
 lesson is a committed `gandalf build` export (regenerating it drives Claude
-usage, so it is never rebuilt in CI — re-export locally and commit to update it).
+usage, so it is never rebuilt in CI; re-export locally and commit to update it).
 
 ## One-time setup (maintainer)
 
