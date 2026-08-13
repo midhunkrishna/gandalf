@@ -1,26 +1,26 @@
-# Cloudflare Pages deployment
+# Cloudflare deployment (Workers Builds, static assets)
 
-`site/` deploys to Cloudflare Pages via the dashboard's Git integration —
-push-to-deploy, same setup as shaktiman.dev. The directory is **fully static**:
-the sample lesson is a committed `gandalf build` export (regenerating it drives
-Claude usage, so it is never rebuilt in CI — re-export locally and commit to
-update it).
+`site/` deploys to Cloudflare via Workers Builds Git integration —
+push-to-deploy, same setup as shaktiman.dev. The `wrangler.jsonc` at the repo
+root points `assets.directory` at `site/`; there is no Worker script — Cloudflare
+just serves the static files. The directory is **fully static**: the sample
+lesson is a committed `gandalf build` export (regenerating it drives Claude
+usage, so it is never rebuilt in CI — re-export locally and commit to update it).
 
 ## One-time setup (maintainer)
 
-1. **Cloudflare dashboard → Workers & Pages → Create → Pages → Connect to Git.**
+1. **Cloudflare dashboard → Workers & Pages → Create → Import a repository.**
 2. Select the `midhunkrishna/gandalf` repo.
-3. **Framework preset:** None.
-4. **Build settings:**
+3. **Build settings:**
 
    | Setting | Value |
    |---|---|
    | Build command | *(leave empty)* |
-   | Build output directory | `site` |
-   | Root directory (advanced) | *(leave as repo root)* |
+   | Deploy command | `npx wrangler deploy` |
+   | Path (root directory) | `/` |
 
-5. **Production branch:** `main`. Other branches produce preview deployments.
-6. After the first deploy, add the custom domain under **Custom domains**
+4. **Production branch:** `main`. Other branches produce preview deployments.
+5. After the first deploy, add the custom domain on the Worker
    (e.g. `gandalf.midhunkrishna.in`). Cloudflare provisions TLS automatically.
 
 ## Updating the sample lesson
