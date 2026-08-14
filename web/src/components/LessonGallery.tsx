@@ -55,6 +55,7 @@ export function LessonGallery({
                         {m.verdict === "behavioral" ? "behavioral" : "refactor"}
                       </Badge>
                       {m.breakingCount > 0 && <Badge tone="breaking">{m.breakingCount} breaking</Badge>}
+                      {m.profile === "lite" && <Badge tone="neutral">lite</Badge>}
                     </div>
                   </button>
                 </li>

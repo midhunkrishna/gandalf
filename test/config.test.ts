@@ -46,6 +46,16 @@ describe("loadConfig", () => {
     expect(warnings).toEqual([]);
   });
 
+  it("leaves generation_profile unset unless the file sets it", async () => {
+    const absent = await loadConfig();
+    expect(absent.config.generation_profile).toBeUndefined();
+    await mkdir(home, { recursive: true });
+    await writeFile(configPath(), 'generation_profile: "lite"\n');
+    const { config, warnings } = await loadConfig();
+    expect(config.generation_profile).toBe("lite");
+    expect(warnings).toEqual([]);
+  });
+
   it("warns on unknown keys without failing", async () => {
     await mkdir(home, { recursive: true });
     await writeFile(configPath(), 'lesson_location: "project-wd"\nfuture_key: 42\n');

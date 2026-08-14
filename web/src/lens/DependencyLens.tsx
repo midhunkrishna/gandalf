@@ -6,7 +6,7 @@ import { Badge } from "@/ui/badge.tsx";
 import { DependencyGraph } from "@/components/DependencyGraph.tsx";
 import { Tldr } from "@/components/Tldr.tsx";
 import { CodePanel } from "@/components/CodePanel.tsx";
-import { TieredExplanation } from "@/components/TieredExplanation.tsx";
+import { LessonExplanation } from "@/components/TieredExplanation.tsx";
 import { safetyTone } from "@/lib/concept.ts";
 import { useFileFilter } from "@/lib/fileFilter.tsx";
 import { SectionHeading } from "@/ui/SectionHeading.tsx";
@@ -170,10 +170,12 @@ export function DependencyLens({ lesson }: { lesson: LessonBundle }) {
               Pick a module in the graph. This panel fills with its story: what it did before, what
               it does now, which contracts moved, and the diff itself.
             </div>
-            <section className="space-y-2">
-              <SectionHeading>How the modules relate</SectionHeading>
-              <TieredExplanation text={lesson.explanations.dependency} className="text-sm leading-relaxed text-ink" />
-            </section>
+            {lesson.meta.profile !== "lite" && (
+              <section className="space-y-2">
+                <SectionHeading>How the modules relate</SectionHeading>
+                <LessonExplanation lesson={lesson} lens="dependency" className="text-sm leading-relaxed text-ink" />
+              </section>
+            )}
           </div>
         ) : (
           <div>

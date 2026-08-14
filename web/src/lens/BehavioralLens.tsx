@@ -1,7 +1,7 @@
 import type { LessonBundle } from "@engine/core/schemas.ts";
 import { Badge } from "@/ui/badge.tsx";
 import { TraceCard } from "@/components/TraceCard.tsx";
-import { TieredExplanation } from "@/components/TieredExplanation.tsx";
+import { LessonExplanation } from "@/components/TieredExplanation.tsx";
 import { Reveal } from "@/components/Reveal.tsx";
 import { SectionHeading } from "@/ui/SectionHeading.tsx";
 
@@ -19,7 +19,7 @@ export function BehavioralLens({ lesson }: { lesson: LessonBundle }) {
         <div className="rounded-md border-l-2 border-modified bg-surface px-4 py-3 text-[0.95rem] leading-relaxed text-ink">
           {b.conditionalEquivalence}
         </div>
-        <TieredExplanation text={lesson.explanations.behavioral} />
+        <LessonExplanation lesson={lesson} lens="behavioral" />
       </header>
 
       {b.traceCards.length > 0 && (

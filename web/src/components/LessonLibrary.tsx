@@ -62,6 +62,7 @@ export function LessonLibrary({
                         {m.verdict === "behavioral" ? "behavioral" : "refactor"}
                       </Badge>
                       {m.breakingCount > 0 && <Badge tone="breaking">{m.breakingCount} breaking</Badge>}
+                      {m.profile === "lite" && <Badge tone="neutral">lite</Badge>}
                       {m.ticketId && <span className="text-[0.7rem] text-muted-ink">{m.ticketId}</span>}
                       <span className="ml-auto text-[0.7rem] text-muted-ink">{m.createdAt.slice(0, 10)}</span>
                     </div>

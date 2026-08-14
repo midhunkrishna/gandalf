@@ -39,8 +39,13 @@ const LENSES: Array<[string, string]> = [
   ["recall", "Recall"],
 ];
 
+// Lenses the lite profile never generates: hidden entirely rather than shown empty.
+const LITE_HIDDEN = new Set(["dataflow", "patterns", "recall"]);
+
 // Lenses that render TieredExplanation → only these show the depth selector.
 const DEPTH_TABS = new Set(["behavioral", "contract", "dataflow", "dependency"]);
+// A lite lesson has no tiered explanations, so no lens gets a depth selector.
+const NO_DEPTH_TABS = new Set<string>();
 // Lenses with predict-then-reveal gating → only these show the quiz toggle.
 const QUIZ_TABS = new Set(["behavioral", "contract"]);
 
@@ -72,8 +77,13 @@ function heroInit(): boolean {
 }
 
 export function LessonView({ lesson }: { lesson: LessonBundle }) {
-  // The URL owns the active tab (default overview — Shneiderman's mantra).
-  const tab = useRoute().tab;
+  const lite = lesson.meta.profile === "lite";
+  const lenses = lite ? LENSES.filter(([value]) => !LITE_HIDDEN.has(value)) : LENSES;
+  const depthTabs = lite ? NO_DEPTH_TABS : DEPTH_TABS;
+  // The URL owns the active tab (default overview — Shneiderman's mantra). A deep link
+  // into a lens this lesson doesn't have falls back to overview instead of an empty tab.
+  const routedTab = useRoute().tab;
+  const tab = lenses.some(([value]) => value === routedTab) ? routedTab : "overview";
   const setTab = (t: string) => navigate({ tab: t as Tab, ...NO_DETAIL });
   const [heroCollapsed, setHeroCollapsed] = useState<boolean>(heroInit);
   const setHero = (v: boolean) => {
@@ -120,6 +130,11 @@ export function LessonView({ lesson }: { lesson: LessonBundle }) {
                     {lesson.meta.breakingCount > 0 && (
                       <Badge tone="breaking">{lesson.meta.breakingCount} breaking</Badge>
                     )}
+                    {lite && (
+                      <Badge tone="neutral" title="Lite profile: Data flow, Patterns, Recall and the tiered explanations were not generated">
+                        lite
+                      </Badge>
+                    )}
                   </span>
                 </div>
                 <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-ink">
@@ -141,7 +156,7 @@ export function LessonView({ lesson }: { lesson: LessonBundle }) {
                   <span className="flex items-center gap-2">
                     <StatChip value={lesson.files.length} label="files" />
                     <StatChip value={lesson.contracts.length} label="contracts" />
-                    <StatChip value={lesson.retrieval?.questions.length ?? 0} label="recall" />
+                    {!lite && <StatChip value={lesson.retrieval?.questions.length ?? 0} label="recall" />}
                   </span>
                   <ShareCardButton lesson={lesson} />
                 </div>
@@ -163,7 +178,7 @@ export function LessonView({ lesson }: { lesson: LessonBundle }) {
                   </button>
                 )}
                 <Tabs.List className="flex">
-                  {LENSES.map(([value, label]) => (
+                  {lenses.map(([value, label]) => (
                     <Tabs.Trigger key={value} value={value} className={triggerCls}>
                       {label}
                     </Tabs.Trigger>
@@ -172,7 +187,7 @@ export function LessonView({ lesson }: { lesson: LessonBundle }) {
               </div>
               <div className="flex items-center gap-3">
                 {QUIZ_TABS.has(tab) && <QuizToggle />}
-                {DEPTH_TABS.has(tab) && <DepthSelector />}
+                {depthTabs.has(tab) && <DepthSelector />}
               </div>
             </div>
 
@@ -199,18 +214,24 @@ export function LessonView({ lesson }: { lesson: LessonBundle }) {
             <Tabs.Content value="contract" className="min-h-0 flex-1 overflow-y-auto outline-none">
               <ContractLens lesson={lesson} />
             </Tabs.Content>
-            <Tabs.Content value="dataflow" className="min-h-0 flex-1 overflow-y-auto outline-none">
-              <DataFlowLens lesson={lesson} />
-            </Tabs.Content>
+            {!lite && (
+              <Tabs.Content value="dataflow" className="min-h-0 flex-1 overflow-y-auto outline-none">
+                <DataFlowLens lesson={lesson} />
+              </Tabs.Content>
+            )}
             <Tabs.Content value="complexity" className="min-h-0 flex-1 overflow-y-auto outline-none">
               <ComplexityLens lesson={lesson} />
             </Tabs.Content>
-            <Tabs.Content value="patterns" className="min-h-0 flex-1 overflow-y-auto outline-none">
-              <PatternsLens lesson={lesson} />
-            </Tabs.Content>
-            <Tabs.Content value="recall" className="min-h-0 flex-1 overflow-y-auto outline-none">
-              <RecallPanel lesson={lesson} />
-            </Tabs.Content>
+            {!lite && (
+              <>
+                <Tabs.Content value="patterns" className="min-h-0 flex-1 overflow-y-auto outline-none">
+                  <PatternsLens lesson={lesson} />
+                </Tabs.Content>
+                <Tabs.Content value="recall" className="min-h-0 flex-1 overflow-y-auto outline-none">
+                  <RecallPanel lesson={lesson} />
+                </Tabs.Content>
+              </>
+            )}
           </Tabs.Root>
         </div>
       </QuizModeProvider>

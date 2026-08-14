@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { FileDiff } from "lucide-react";
 import type { ContractChange, LessonBundle } from "@engine/core/schemas.ts";
 import { Badge } from "@/ui/badge.tsx";
-import { TieredExplanation } from "@/components/TieredExplanation.tsx";
+import { LessonExplanation } from "@/components/TieredExplanation.tsx";
 import { PredictReveal } from "@/components/PredictReveal.tsx";
 import { Reveal } from "@/components/Reveal.tsx";
 import { safetyTone } from "@/lib/concept.ts";
@@ -60,7 +60,7 @@ export function ContractLens({ lesson }: { lesson: LessonBundle }) {
     <div className="mx-auto max-w-4xl space-y-8 p-8">
       <header className="space-y-3">
         <h2 className="text-2xl">Contracts</h2>
-        <TieredExplanation text={lesson.explanations.contract} />
+        <LessonExplanation lesson={lesson} lens="contract" />
         <p className="text-xs text-muted-ink">
           Design-by-Contract in one rule: a change that asks less of callers or promises
           them more is safe. Asking more or promising less breaks them.

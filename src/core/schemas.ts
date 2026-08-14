@@ -32,6 +32,10 @@ export type Confidence = z.infer<typeof Confidence>;
 export const DepthTier = z.enum(["eli5", "junior", "senior", "architect"]);
 export type DepthTier = z.infer<typeof DepthTier>;
 
+/** How much of the lesson was generated: "full" = every lens, "lite" = the cheap subset. */
+export const GenerationProfile = z.enum(["full", "lite"]);
+export type GenerationProfile = z.infer<typeof GenerationProfile>;
+
 /** Audience-tiered prose: generated once, switched client-side. */
 export const TieredText = z.object({
   eli5: z.string(),
@@ -114,6 +118,7 @@ export const NodeKind = z.enum([
   "test",
   "module",
 ]);
+export type NodeKind = z.infer<typeof NodeKind>;
 
 export const GraphNode = z.object({
   id: z.string(),
@@ -121,8 +126,10 @@ export const GraphNode = z.object({
   status: ChangeStatus,
   kind: NodeKind.default("module"),
 });
+export type GraphNode = z.infer<typeof GraphNode>;
 
 export const EdgeKind = z.enum(["imports", "conforms", "uses", "injects"]);
+export type EdgeKind = z.infer<typeof EdgeKind>;
 
 export const GraphEdge = z.object({
   from: z.string(),
@@ -130,6 +137,7 @@ export const GraphEdge = z.object({
   kind: EdgeKind,
   status: ChangeStatus,
 });
+export type GraphEdge = z.infer<typeof GraphEdge>;
 
 export const ModuleGraphDelta = z.object({
   nodes: z.array(GraphNode),
@@ -308,6 +316,8 @@ export const LessonMeta = z.object({
   summary: z.string(),
   verdict: Verdict,
   breakingCount: z.number().int().nonnegative(),
+  // Defaulted so every lesson persisted before profiles existed still parses (as full).
+  profile: GenerationProfile.default("full"),
 });
 export type LessonMeta = z.infer<typeof LessonMeta>;
 
@@ -365,3 +375,39 @@ export const SynthNarrative = z.object({
   summary: z.string(),
 });
 export type SynthNarrative = z.infer<typeof SynthNarrative>;
+
+/**
+ * Graph pass: the node set is a deterministic fact derived from the diff, so the model
+ * only chooses edges. Edge endpoints and ripple targets are pinned to the known node ids
+ * with a per-run zod enum: `claudeStructured` converts the schema and passes it as
+ * `--json-schema`, so the enum is enforced server-side on attempt 1 and caught by Zod
+ * (which triggers the retry-with-error path) after that. A run with no nodes at all
+ * cannot have an enum, so it degrades to plain strings and `repairGraph` cleans up.
+ */
+export function graphPassSchema(nodeIds: string[]) {
+  const id: z.ZodType<string> =
+    nodeIds.length > 0 ? z.enum(nodeIds as [string, ...string[]]) : z.string();
+  return z.object({
+    edges: z
+      .array(z.object({ from: id, to: id, kind: EdgeKind, status: ChangeStatus }))
+      .default([]),
+    rippleTargets: z.array(id).default([]),
+  });
+}
+export type GraphPassResult = z.infer<ReturnType<typeof graphPassSchema>>;
+
+/**
+ * Lite profile: ONE merged synthesis pass replaces the seven focused ones. It carries
+ * only the sections the lite lesson keeps that Claude must produce: narrative (title,
+ * hypothesis, summary), behavioral (the lesson verdict) and the graph edges. The graph
+ * portion reuses the same per-run node enum as the full path, so the node set stays a
+ * deterministic fact either way.
+ */
+export function synthLiteSchema(nodeIds: string[]) {
+  return z.object({
+    narrative: SynthNarrative,
+    behavioral: Behavioral,
+    graph: graphPassSchema(nodeIds),
+  });
+}
+export type SynthLiteResult = z.infer<ReturnType<typeof synthLiteSchema>>;

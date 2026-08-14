@@ -5,17 +5,24 @@ import {
   unifiedDiff,
   blobAt,
 } from "./git.ts";
-import { buildEvidence, evidenceForFile, type EvidenceBundle } from "./evidence.ts";
+import { buildEvidence, deriveGraphNodes, evidenceForFile, type EvidenceBundle } from "./evidence.ts";
 import { normalizeModule, languageOf } from "./modules.ts";
 import { classifyPath, isFormattingOnly, isPermanentIgnore } from "./noise.ts";
 import { loadTickets, matchTicket, ticketIntent } from "./tickets.ts";
 import { claudeStructured, type ClaudeOptions, type ModelAlias } from "./claude.ts";
-import { filePassPrompt, synthesisPrompts, type Built, type PerFileSummary } from "./prompts.ts";
-import { validateLesson, formatIssues } from "./validate.ts";
+import {
+  filePassPrompt,
+  liteSynthesisPrompt,
+  synthesisPrompts,
+  type Built,
+  type PerFileSummary,
+} from "./prompts.ts";
+import { validateLesson, formatIssues, repairGraph } from "./validate.ts";
 import {
   FilePassResult,
   SynthNarrative,
-  ModuleGraphDelta,
+  graphPassSchema,
+  synthLiteSchema,
   DataFlow,
   Patterns,
   Behavioral,
@@ -26,6 +33,10 @@ import {
   type Complexity,
   type FnComplexity,
   type ContractChange,
+  type GenerationProfile,
+  type GraphNode,
+  type GraphPassResult,
+  type Hotspot,
 } from "./schemas.ts";
 
 export interface GenerateOptions {
@@ -36,6 +47,8 @@ export interface GenerateOptions {
   modelFile?: ModelAlias;
   modelSynth?: ModelAlias;
   concurrency?: number;
+  /** Generation profile; defaults to "full" (the behavior that predates profiles). */
+  profile?: GenerationProfile;
   onProgress?: (msg: string) => void;
 }
 
@@ -122,12 +135,160 @@ const COLLAPSED_TLDR = {
   behaviorChanged: "None.",
 } as const;
 
+// ---------- lite profile ----------
+// Lite trades depth for volume: haiku file passes (escalating on heavy files) and ONE
+// merged sonnet synthesis pass instead of seven opus passes. Everything deterministic
+// (contracts, beacons, TLDRs, complexity, the graph's node set) is unaffected.
+
+/** A file above this many changed diff lines earns a sonnet pass in lite. */
+const LITE_HEAVY_DIFF_LINES = 150;
+/** …so does a file among the evidence bundle's top hotspots. */
+const LITE_HOTSPOT_TOP_N = 3;
+
+const LITE_SKIPPED = "Not generated in the lite profile. Re-run with --full for this lens.";
+
+/** Lines a unified diff adds or removes, ignoring its ---/+++ headers. */
+function changedLineCount(diff: string): number {
+  let n = 0;
+  for (const line of diff.split("\n")) {
+    if (line.startsWith("+++") || line.startsWith("---")) continue;
+    if (line.startsWith("+") || line.startsWith("-")) n += 1;
+  }
+  return n;
+}
+
+/**
+ * Per-file model for the lite profile: haiku, escalating to sonnet where the file is
+ * heavy enough to be worth it. Both signals are already computed, so the decision is
+ * deterministic and costs no extra Claude call.
+ */
+export function liteFileModel(
+  file: { path: string; unifiedDiff: string },
+  hotspots: Hotspot[],
+): ModelAlias {
+  if (changedLineCount(file.unifiedDiff) > LITE_HEAVY_DIFF_LINES) return "sonnet";
+  const top = hotspots.slice(0, LITE_HOTSPOT_TOP_N);
+  return top.some((h) => h.path === file.path) ? "sonnet" : "haiku";
+}
+
+/** Everything a lesson needs out of synthesis, whichever profile produced it. */
+interface SynthSections {
+  narrative: SynthNarrative;
+  behavioral: Behavioral;
+  /** Edges + ripple targets only; the nodes are deterministic (deriveGraphNodes). */
+  graphPass: GraphPassResult;
+  dataflow: DataFlow;
+  patterns: Patterns;
+  explanations: Explanations;
+  retrieval: Retrieval;
+}
+
+interface SynthContext {
+  summaries: PerFileSummary[];
+  evidenceSummary: string;
+  intent: string | null;
+  graphNodes: GraphNode[];
+  model: ModelAlias;
+  cwd: string;
+  log: (msg: string) => void;
+}
+
+/** Full profile: seven focused passes, fanned out in parallel. */
+async function fullSynthesis(ctx: SynthContext): Promise<SynthSections> {
+  const prompts = synthesisPrompts(ctx.summaries, ctx.evidenceSummary, ctx.intent, ctx.graphNodes);
+  const synthOpts = (built: Built, label: string): ClaudeOptions => ({
+    system: built.system,
+    prompt: built.prompt,
+    model: ctx.model,
+    cwd: ctx.cwd,
+    label,
+    timeoutMs: 360_000,
+  });
+  // The per-file passes above already warmed the shared prompt-prefix cache, so the
+  // synthesis passes fan out concurrently as cache-reads. Each is small + focused, so
+  // wall-clock ≈ the slowest single pass instead of one ~5-min monolith.
+  //
+  // Failure policy: narrative + behavioral are load-bearing (title, verdict) and still
+  // fail the run; every other pass degrades to a placeholder section with a warning so
+  // one flaky call can't sink the lesson.
+  const settled = await Promise.allSettled([
+    claudeStructured(SynthNarrative, synthOpts(prompts.narrative, "synth:narrative")),
+    claudeStructured(graphPassSchema(ctx.graphNodes.map((n) => n.id)), synthOpts(prompts.graph, "synth:graph")),
+    claudeStructured(DataFlow, synthOpts(prompts.dataflow, "synth:dataflow")),
+    claudeStructured(Patterns, synthOpts(prompts.patterns, "synth:patterns")),
+    claudeStructured(Behavioral, synthOpts(prompts.behavioral, "synth:behavioral")),
+    claudeStructured(Explanations, synthOpts(prompts.explanations, "synth:explanations")),
+    claudeStructured(Retrieval, synthOpts(prompts.retrieval, "synth:retrieval")),
+  ]);
+  const required = <T,>(r: PromiseSettledResult<T>, label: string): T => {
+    if (r.status === "rejected") throw new Error(`${label} synthesis failed: ${r.reason}`);
+    return r.value;
+  };
+  const optional = <T,>(r: PromiseSettledResult<T>, label: string, fallback: T): T => {
+    if (r.status === "rejected") {
+      ctx.log(`  ⚠ ${label} synthesis failed — writing a placeholder section (${r.reason})`);
+      return fallback;
+    }
+    return r.value;
+  };
+  const unavailable = "(explanation unavailable — this synthesis pass failed; regenerate the lesson)";
+  return {
+    narrative: required(settled[0], "narrative"),
+    behavioral: required(settled[4], "behavioral"),
+    // Graph fallback: the deterministic nodes still stand on their own (no edges beats no lens).
+    graphPass: optional(settled[1], "graph", { edges: [], rippleTargets: [] }),
+    dataflow: optional(settled[2], "dataflow", {
+      mermaid: "",
+      sankey: null,
+      narrative: { before: "(dataflow synthesis failed — regenerate)", after: "" },
+    }),
+    patterns: optional(settled[3], "patterns", { detected: [], adr: null }),
+    explanations: optional(settled[5], "explanations", {
+      behavioral: { eli5: unavailable, junior: unavailable, senior: unavailable, architect: unavailable },
+      dependency: { eli5: unavailable, junior: unavailable, senior: unavailable, architect: unavailable },
+      contract: { eli5: unavailable, junior: unavailable, senior: unavailable, architect: unavailable },
+      dataflow: { eli5: unavailable, junior: unavailable, senior: unavailable, architect: unavailable },
+    }),
+    retrieval: optional(settled[6], "retrieval", { questions: [] }),
+  };
+}
+
+/**
+ * Lite profile: one merged pass on the cheaper model. It carries narrative + behavioral,
+ * both load-bearing (title, verdict), so it fails the run on error exactly as their
+ * focused passes do in the full profile. Its graph portion still goes through repairGraph.
+ */
+async function liteSynthesis(ctx: SynthContext): Promise<SynthSections> {
+  const built = liteSynthesisPrompt(ctx.summaries, ctx.evidenceSummary, ctx.intent, ctx.graphNodes);
+  const merged = await claudeStructured(synthLiteSchema(ctx.graphNodes.map((n) => n.id)), {
+    system: built.system,
+    prompt: built.prompt,
+    model: ctx.model,
+    cwd: ctx.cwd,
+    label: "synth:lite",
+    timeoutMs: 360_000,
+  });
+  const skipped = { eli5: LITE_SKIPPED, junior: LITE_SKIPPED, senior: LITE_SKIPPED, architect: LITE_SKIPPED };
+  return {
+    narrative: merged.narrative,
+    behavioral: merged.behavioral,
+    graphPass: merged.graph,
+    // Skipped lenses get typed empties, never nulls: the bundle parses, validation stays
+    // quiet (it knows the profile), and the viewer hides these tabs on a lite lesson.
+    dataflow: { mermaid: "", sankey: null, narrative: { before: LITE_SKIPPED, after: "" } },
+    patterns: { detected: [], adr: null },
+    explanations: { behavioral: skipped, dependency: skipped, contract: skipped, dataflow: skipped },
+    retrieval: { questions: [] },
+  };
+}
+
 export async function generateLesson(opts: GenerateOptions): Promise<LessonBundle> {
   const cwd = opts.cwd;
   const log = opts.onProgress ?? (() => {});
   const fromRef = opts.fromRef ?? "HEAD";
   const toRef = opts.toRef ?? WORKTREE;
   const concurrency = opts.concurrency ?? 4;
+  const profile = opts.profile ?? "full";
 
   const fromShort = await resolveRef(fromRef, cwd);
   const toShort = await resolveRef(toRef, cwd);
@@ -176,7 +337,8 @@ export async function generateLesson(opts: GenerateOptions): Promise<LessonBundl
     const res = await claudeStructured(FilePassResult, {
       system: built.system,
       prompt: built.prompt,
-      model: opts.modelFile ?? "sonnet",
+      // An explicit --model-file wins; otherwise the profile picks (lite escalates per file).
+      model: opts.modelFile ?? (profile === "lite" ? liteFileModel(f, ev.hotspots) : "sonnet"),
       cwd,
       label: `file:${f.path}`,
     });
@@ -224,87 +386,38 @@ export async function generateLesson(opts: GenerateOptions): Promise<LessonBundl
     cognitive: cognitiveByFile.get(f.path) ?? [],
   }));
 
-  log("Synthesizing cross-cutting lesson with claude -p (7 focused passes)…");
-  const prompts = synthesisPrompts(summaries, evidenceSummary(ev), intent);
-  const synthModel = opts.modelSynth ?? "opus";
-  const synthOpts = (built: Built, label: string): ClaudeOptions => ({
-    system: built.system,
-    prompt: built.prompt,
-    model: synthModel,
-    cwd,
-    label,
-    timeoutMs: 360_000,
-  });
-  // The per-file passes above already warmed the shared prompt-prefix cache, so the
-  // synthesis passes fan out concurrently as cache-reads. Each is small + focused, so
-  // wall-clock ≈ the slowest single pass instead of one ~5-min monolith.
-  //
-  // Failure policy: narrative + behavioral are load-bearing (title, verdict) and still
-  // fail the run; every other pass degrades to a placeholder section with a warning so
-  // one flaky call can't sink the lesson.
-  const settled = await Promise.allSettled([
-    claudeStructured(SynthNarrative, synthOpts(prompts.narrative, "synth:narrative")),
-    claudeStructured(ModuleGraphDelta, synthOpts(prompts.graph, "synth:graph")),
-    claudeStructured(DataFlow, synthOpts(prompts.dataflow, "synth:dataflow")),
-    claudeStructured(Patterns, synthOpts(prompts.patterns, "synth:patterns")),
-    claudeStructured(Behavioral, synthOpts(prompts.behavioral, "synth:behavioral")),
-    claudeStructured(Explanations, synthOpts(prompts.explanations, "synth:explanations")),
-    claudeStructured(Retrieval, synthOpts(prompts.retrieval, "synth:retrieval")),
-  ]);
-  const required = <T,>(r: PromiseSettledResult<T>, label: string): T => {
-    if (r.status === "rejected") throw new Error(`${label} synthesis failed: ${r.reason}`);
-    return r.value;
-  };
-  const optional = <T,>(r: PromiseSettledResult<T>, label: string, fallback: T): T => {
-    if (r.status === "rejected") {
-      log(`  ⚠ ${label} synthesis failed — writing a placeholder section (${r.reason})`);
-      return fallback;
-    }
-    return r.value;
-  };
-  const narrative = required(settled[0], "narrative");
-  const behavioral = required(settled[4], "behavioral");
-  const dataflow = optional(settled[2], "dataflow", {
-    mermaid: "",
-    sankey: null,
-    narrative: { before: "(dataflow synthesis failed — regenerate)", after: "" },
-  });
-  const patterns = optional(settled[3], "patterns", { detected: [], adr: null });
-  const unavailable = "(explanation unavailable — this synthesis pass failed; regenerate the lesson)";
-  const explanations = optional(settled[5], "explanations", {
-    behavioral: { eli5: unavailable, junior: unavailable, senior: unavailable, architect: unavailable },
-    dependency: { eli5: unavailable, junior: unavailable, senior: unavailable, architect: unavailable },
-    contract: { eli5: unavailable, junior: unavailable, senior: unavailable, architect: unavailable },
-    dataflow: { eli5: unavailable, junior: unavailable, senior: unavailable, architect: unavailable },
-  });
-  const retrieval = optional(settled[6], "retrieval", { questions: [] });
-  // Graph fallback: a deterministic module graph from the diff (no edges beats no lens).
-  const graphRaw = optional(settled[1], "graph", {
-    nodes: [...new Set(analyzable.map((f) => f.module))].map((m) => ({
-      id: m,
-      module: m,
-      status: "modified" as const,
-      kind: "module" as const,
+  // The graph's node set is deterministic (one node per changed module + its in-repo
+  // import neighbours), so the graph pass only chooses edges between these ids.
+  const graphNodes = deriveGraphNodes(
+    analyzable.map((f) => ({
+      path: f.path,
+      status: f.status,
+      afterBlob: f.afterBlob,
+      beforeBlob: f.beforeBlob,
     })),
-    edges: [],
-    rippleTargets: [],
-  });
-  // Canonicalize LLM-chosen node modules onto the deterministic taxonomy the viewer joins on.
-  const canonical = new Set(files.map((f) => f.module));
-  const nodes = graphRaw.nodes.map((n) =>
-    canonical.has(n.module) ? n : { ...n, module: normalizeModule(n.module) },
   );
-  // Ripple targets must literally match a node id/module to light its halo; the model
-  // sometimes emits prose ("Core/X (because …)") — reduce each to its leading path token.
-  const nodeKeys = new Set(nodes.flatMap((n) => [n.id, n.module]));
-  const rippleTargets = graphRaw.rippleTargets.map((t) => {
-    if (nodeKeys.has(t)) return t;
-    const head = t.split(/[\s(—]/, 1)[0] ?? t;
-    if (nodeKeys.has(head)) return head;
-    const norm = normalizeModule(head);
-    return nodeKeys.has(norm) ? norm : t;
-  });
-  const graph = { ...graphRaw, nodes, rippleTargets };
+
+  log(
+    profile === "lite"
+      ? "Synthesizing cross-cutting lesson with claude -p (1 merged lite pass)…"
+      : "Synthesizing cross-cutting lesson with claude -p (7 focused passes)…",
+  );
+  const synthCtx: SynthContext = {
+    summaries,
+    evidenceSummary: evidenceSummary(ev),
+    intent,
+    graphNodes,
+    // An explicit --model-synth wins; otherwise the profile picks.
+    model: opts.modelSynth ?? (profile === "lite" ? "sonnet" : "opus"),
+    cwd,
+    log,
+  };
+  const sections = profile === "lite" ? await liteSynthesis(synthCtx) : await fullSynthesis(synthCtx);
+  const { narrative, behavioral, dataflow, patterns, explanations, retrieval } = sections;
+  // Repair covers the retry path, where the schema's node enum is no longer enforced.
+  const repaired = repairGraph({ nodes: graphNodes, ...sections.graphPass });
+  for (const action of repaired.actions) log(`  ⚠ graph repair: ${action}`);
+  const graph = repaired.graph;
 
   const complexity = assembleComplexity(analyzable, cognitiveByFile, ev);
   const breakingCount = contracts.filter((c) => c.safety === "breaking").length;
@@ -323,6 +436,7 @@ export async function generateLesson(opts: GenerateOptions): Promise<LessonBundl
       // The behavioral pass owns the lesson-level verdict (single source of truth).
       verdict: behavioral.verdict,
       breakingCount,
+      profile,
     },
     files,
     contracts,

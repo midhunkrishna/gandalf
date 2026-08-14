@@ -14,9 +14,9 @@ import {
   resolveLessonsDir,
   type ResolvedStore,
 } from "../src/core/lesson.ts";
-import { loadConfig } from "../src/core/config.ts";
+import { loadConfig, resolveProfile, type GandalfConfig } from "../src/core/config.ts";
 import { startServer, webBuilt } from "../src/server/serve.ts";
-import { validateLesson, formatIssues } from "../src/core/validate.ts";
+import { validateLesson, formatIssues, repairGraph } from "../src/core/validate.ts";
 import { createLogger, isLogLevel, type LogLevel } from "../src/core/log.ts";
 import { runOnce, runDaemon, type CommitTask, type WatchRunOptions } from "../src/core/watch.ts";
 import { acquireLock, releaseLock, loadJournal } from "../src/core/journal.ts";
@@ -28,7 +28,9 @@ const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
  * Shared per-invocation store resolution: repo root + user config + --out-dir
  * override. Config warnings surface once, on stderr, without failing the run.
  */
-async function resolveStore(opts: { cwd: string; outDir?: string }): Promise<ResolvedStore & { cwd: string }> {
+async function resolveStore(
+  opts: { cwd: string; outDir?: string },
+): Promise<ResolvedStore & { cwd: string; config: GandalfConfig }> {
   const cwd = await repoRoot(resolve(opts.cwd));
   const { config, warnings } = await loadConfig();
   for (const w of warnings) process.stderr.write(`gandalf: ${w}\n`);
@@ -36,7 +38,7 @@ async function resolveStore(opts: { cwd: string; outDir?: string }): Promise<Res
   if (store.source === "project-wd (empty repo fallback)") {
     process.stderr.write("gandalf: repository has no commits yet — using <repo>/.gandalf/lessons\n");
   }
-  return { cwd, ...store };
+  return { cwd, config, ...store };
 }
 
 /** Run `vite build` (with injection env) from the gandalf project root. */
@@ -74,11 +76,14 @@ program
   .option("--ticket <id>", "force a ticket id for the intent overlay")
   .option("--cwd <dir>", "repository directory", process.cwd())
   .option("--out-dir <dir>", "lessons directory (overrides the configured lesson location)")
-  .option("--model-file <model>", "model for per-file passes", "sonnet")
-  .option("--model-synth <model>", "model for the synthesis pass", "opus")
+  .option("--lite", "cheap profile: haiku file passes + one merged synthesis pass")
+  .option("--full", "every lens, opus synthesis (the default for generate)")
+  .option("--model-file <model>", "model for per-file passes (overrides the profile)")
+  .option("--model-synth <model>", "model for the synthesis pass (overrides the profile)")
   .option("--concurrency <n>", "parallel per-file passes", "4")
   .action(async (opts) => {
-    const { cwd, lessonsDir } = await resolveStore(opts);
+    const { cwd, lessonsDir, config } = await resolveStore(opts);
+    const profile = resolveProfile(opts, config.generation_profile, "full");
     const bundle = await generateLesson({
       cwd,
       fromRef: opts.from,
@@ -87,12 +92,13 @@ program
       modelFile: opts.modelFile,
       modelSynth: opts.modelSynth,
       concurrency: Number(opts.concurrency) || 4,
+      profile,
       onProgress: (m) => process.stderr.write(`${m}\n`),
     });
     const file = await saveLesson(bundle, lessonsDir);
     process.stderr.write("\n");
     console.log(`Lesson: ${bundle.meta.title}`);
-    console.log(`  verdict: ${bundle.meta.verdict}  breaking: ${bundle.meta.breakingCount}`);
+    console.log(`  verdict: ${bundle.meta.verdict}  breaking: ${bundle.meta.breakingCount}  profile: ${bundle.meta.profile}`);
     console.log(`  files: ${bundle.files.length}  contracts: ${bundle.contracts.length}`);
     console.log(`  saved: ${file}`);
   });
@@ -119,6 +125,7 @@ program
   .command("doctor")
   .description("Cross-section integrity check of persisted lessons (graph↔files joins, evidence refs, …).")
   .option("--lesson <id>", "check one lesson (default: all)")
+  .option("--fix", "apply the graph repairs to the stored lesson files (default: report only)")
   .option("--cwd <dir>", "repository directory", process.cwd())
   .option("--out-dir <dir>", "lessons directory (overrides the configured lesson location)")
   .action(async (opts) => {
@@ -128,6 +135,9 @@ program
     const { config, path: cfgPath } = await loadConfig();
     console.log(`config: ${cfgPath}${existsSync(cfgPath) ? "" : " (absent — using defaults)"}`);
     console.log(`  lesson_location: ${config.lesson_location}`);
+    console.log(
+      `  generation_profile: ${config.generation_profile ?? "(unset: generate runs full, watch runs lite)"}`,
+    );
     console.log(`  lessons dir: ${lessonsDir} (${store.source})`);
     const metas = await listLessons(lessonsDir);
     const targets = opts.lesson ? metas.filter((m) => m.id === opts.lesson) : metas;
@@ -137,10 +147,23 @@ program
     }
     let errors = 0;
     for (const m of targets) {
-      const lesson = await loadLesson(lessonsDir, m.id);
+      const stored = await loadLesson(lessonsDir, m.id);
+      console.log(`${m.id}`);
+      // Graph repair is reported for every lesson but only written with --fix, so the
+      // default stays non-destructive: the report says exactly what --fix would do.
+      const repair = repairGraph(stored.graph);
+      let lesson = stored;
+      if (repair.actions.length) {
+        for (const a of repair.actions) console.log(`  ${opts.fix ? "✎ fixed" : "→ would fix"}: ${a}`);
+        if (opts.fix) {
+          lesson = { ...stored, graph: repair.graph };
+          await saveLesson(lesson, lessonsDir);
+        } else {
+          console.log("  (re-run with --fix to apply)");
+        }
+      }
       const issues = validateLesson(lesson);
       errors += issues.filter((i) => i.severity === "error").length;
-      console.log(`${m.id}`);
       console.log(
         formatIssues(issues)
           .split("\n")
@@ -224,8 +247,10 @@ program
   .option("--poll <ms>", "HEAD poll interval", "5000")
   .option("--debounce <ms>", "quiet period after HEAD moves before planning", "5000")
   .option("--no-infer-ticket", "do not parse a leading ticket id from commit subjects")
-  .option("--model-file <model>", "model for per-file passes", "sonnet")
-  .option("--model-synth <model>", "model for the synthesis pass", "opus")
+  .option("--lite", "cheap profile: haiku file passes + one merged synthesis pass (the default for watch)")
+  .option("--full", "every lens, opus synthesis")
+  .option("--model-file <model>", "model for per-file passes (overrides the profile)")
+  .option("--model-synth <model>", "model for the synthesis pass (overrides the profile)")
   .option("--concurrency <n>", "parallel per-file passes", "4")
   .action(async (opts) => {
     const log = createLogger(logLevel("debug"));
@@ -252,6 +277,11 @@ program
       if (count("failed") > 0) process.exitCode = 1;
       return;
     }
+
+    // Watch defaults to lite (it teaches every commit, so volume decides). Log the
+    // resolved profile so that default is never a silent surprise.
+    const profile = resolveProfile(opts, store.config.generation_profile, "lite");
+    log.info(`generation profile: ${profile}`);
 
     const lock = acquireLock(store.storeDir);
     if (!lock.acquired) {
@@ -283,6 +313,7 @@ program
           modelFile: opts.modelFile,
           modelSynth: opts.modelSynth,
           concurrency: Number(opts.concurrency) || 4,
+          profile,
           onProgress: (m: string) => log.debug(m),
         }),
       save: (b: Parameters<typeof saveLesson>[0]) => saveLesson(b, store.lessonsDir),

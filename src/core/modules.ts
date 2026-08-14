@@ -1,3 +1,5 @@
+import type { NodeKind } from "./schemas.ts";
+
 /**
  * Normalize a file path to a canonical module name.
  *
@@ -42,7 +44,7 @@ export function normalizeModule(path: string): string {
   return seg.length >= 2 ? `${seg[0]}/${seg[1]}` : seg[0]!;
 }
 
-const NODE_KIND_HINTS: Array<[RegExp, string]> = [
+const NODE_KIND_HINTS: Array<[RegExp, NodeKind]> = [
   [/^App$/, "app"],
   [/^Features\//, "feature"],
   [/Engine$/, "engine"],
@@ -52,7 +54,7 @@ const NODE_KIND_HINTS: Array<[RegExp, string]> = [
 ];
 
 /** Best-effort node kind for graph styling. */
-export function moduleKind(moduleName: string): string {
+export function moduleKind(moduleName: string): NodeKind {
   for (const [re, kind] of NODE_KIND_HINTS) {
     if (re.test(moduleName)) return kind;
   }

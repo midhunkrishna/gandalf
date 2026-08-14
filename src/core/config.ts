@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
+import { GenerationProfile } from "./schemas.ts";
 
 // User-level configuration: ~/.gandalf/config.yaml.
 //
@@ -27,8 +28,36 @@ export function configPath(): string {
 export const GandalfConfig = z.object({
   /** Where lesson libraries live. See resolveLessonsDir in lesson.ts. */
   lesson_location: z.enum(["home-dir", "project-wd"]).default("home-dir"),
+  /**
+   * Which generation profile to use when no --lite/--full flag is given. Left
+   * OPTIONAL rather than defaulted: "unset" must stay distinguishable from an
+   * explicit "full", because each command has its own default (see resolveProfile).
+   */
+  generation_profile: GenerationProfile.optional(),
 });
 export type GandalfConfig = z.infer<typeof GandalfConfig>;
+
+/** Which profile a command runs with when the config says nothing. */
+export interface ProfileFlags {
+  lite?: boolean;
+  full?: boolean;
+}
+
+/**
+ * Resolve the generation profile: flag > config > the command's own default
+ * (`generate` is full, `watch` is lite, because watch teaches every commit and
+ * volume decides). Both flags at once is a user error, not a precedence question.
+ */
+export function resolveProfile(
+  flags: ProfileFlags,
+  configured: GenerationProfile | undefined,
+  commandDefault: GenerationProfile,
+): GenerationProfile {
+  if (flags.lite && flags.full) throw new Error("--lite and --full cannot be combined");
+  if (flags.lite) return "lite";
+  if (flags.full) return "full";
+  return configured ?? commandDefault;
+}
 
 export const DEFAULT_CONFIG: GandalfConfig = GandalfConfig.parse({});
 
@@ -52,6 +81,16 @@ export const DEFAULT_CONFIG_YAML = `# gandalf configuration
 #   "project-wd"  <repo>/.gandalf/lessons — the pre-config behavior; lessons
 #                 live inside the analyzed repository's working directory.
 lesson_location: "home-dir"
+
+# Which generation profile to use when neither --lite nor --full is given.
+#   "full"  every lens, opus synthesis. The deepest lesson, and the priciest.
+#   "lite"  haiku per-file passes plus ONE sonnet synthesis pass. Keeps
+#           Overview, Dependencies, Walkthrough, Behavioral, Contracts and
+#           Complexity; drops Patterns, Data flow, Recall and the tiered
+#           explanations. Roughly a tenth of the cost.
+# Leave this commented out to keep the per-command defaults: \`gandalf generate\`
+# runs full, \`gandalf watch\` runs lite. Set it to pin both commands to one profile.
+# generation_profile: "lite"
 
 # Future keys ship here commented-out (disabled) with their documentation.
 `;

@@ -1,5 +1,5 @@
-import { normalizeModule } from "./modules.ts";
-import type { LessonBundle } from "./schemas.ts";
+import { normalizeModule, moduleKind } from "./modules.ts";
+import type { LessonBundle, ModuleGraphDelta, GraphNode } from "./schemas.ts";
 
 /**
  * Cross-section referential-integrity checks for a lesson bundle.
@@ -80,9 +80,13 @@ export function validateLesson(lesson: LessonBundle): ValidationIssue[] {
   }
 
   // ---- dataflow ----
+  // The lite profile never runs the dataflow pass, so its typed-empty section is the
+  // expected shape, not drift. Every other rule below is content-driven and stays quiet
+  // on the empty patterns/retrieval/explanations a lite lesson carries.
+  const lite = lesson.meta.profile === "lite";
   const mermaid = lesson.dataflow.mermaid.trim();
   if (!mermaid) {
-    warn("dataflow", "mermaid source is empty");
+    if (!lite) warn("dataflow", "mermaid source is empty");
   } else if (!MERMAID_TYPES.some((t) => mermaid.startsWith(t))) {
     warn("dataflow", `mermaid source starts with "${mermaid.slice(0, 32)}…" — not a known diagram type`);
   }
@@ -108,6 +112,69 @@ export function validateLesson(lesson: LessonBundle): ValidationIssue[] {
   }
 
   return issues;
+}
+
+/**
+ * A dangling reference is only repairable if it reads like a module id at all: one
+ * identifier-ish path, no whitespace and no prose (the model's failure mode is
+ * "Core/X (because …)", which must be dropped rather than turned into a node).
+ */
+const PLAUSIBLE_ID = /^[A-Za-z0-9_@][A-Za-z0-9_.\-/]*$/;
+
+export interface GraphRepair {
+  graph: ModuleGraphDelta;
+  /** One line per repair, in application order (empty when nothing was wrong). */
+  actions: string[];
+}
+
+/**
+ * Last line of defence for graph referential integrity, applied before a lesson is
+ * persisted (and re-usable by `gandalf doctor --fix` on stored lessons).
+ *
+ * The node set is derived deterministically and the graph pass's schema pins edge
+ * endpoints to it, so this only sees the retry path's output and older lessons:
+ * a dangling endpoint that still looks like a module becomes an `unchanged` context
+ * node, anything else takes its edge with it. Ripple targets are reduced to their
+ * leading token before being dropped, since the model likes to append reasoning.
+ */
+export function repairGraph(graph: ModuleGraphDelta): GraphRepair {
+  const actions: string[] = [];
+  const nodes: GraphNode[] = [...graph.nodes];
+  const ids = new Set(nodes.map((n) => n.id));
+
+  const edges = graph.edges.filter((e) => {
+    const label = `${e.from} → ${e.to}`;
+    const missing = [...new Set([e.from, e.to])].filter((id) => !ids.has(id));
+    // Decide before creating anything, so a dropped edge never leaves an orphan node.
+    if (missing.some((id) => !PLAUSIBLE_ID.test(id))) {
+      actions.push(`dropped edge ${label} (endpoint is not a usable module id)`);
+      return false;
+    }
+    for (const id of missing) {
+      const module = normalizeModule(id);
+      nodes.push({ id, module, status: "unchanged", kind: moduleKind(module) });
+      ids.add(id);
+      actions.push(`added missing node "${id}" (module "${module}", status unchanged) for edge ${label}`);
+    }
+    return true;
+  });
+
+  const keys = new Set(nodes.flatMap((n) => [n.id, n.module]));
+  const rippleTargets: string[] = [];
+  for (const t of graph.rippleTargets) {
+    const head = t.split(/[\s(]/, 1)[0] ?? t;
+    const match = [t, head, normalizeModule(head)].find((c) => keys.has(c));
+    if (match === t) {
+      rippleTargets.push(t);
+    } else if (match) {
+      rippleTargets.push(match);
+      actions.push(`rewrote rippleTarget "${t}" to "${match}"`);
+    } else {
+      actions.push(`dropped rippleTarget "${t}" (matches no node id or module)`);
+    }
+  }
+
+  return { graph: { nodes, edges, rippleTargets }, actions };
 }
 
 export function formatIssues(issues: ValidationIssue[]): string {

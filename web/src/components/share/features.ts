@@ -223,6 +223,11 @@ async function excerptContent(
   };
 }
 
+/** Tiered prose for a card's lead, empty on a lite lesson (which never generated it). */
+function explanationLead(lesson: LessonBundle, lens: keyof LessonBundle["explanations"]): string {
+  return lesson.meta.profile === "lite" ? "" : lesson.explanations[lens].junior;
+}
+
 function tabContent(
   lesson: LessonBundle,
   route: Pick<Route, "tab" | "node" | "contract">,
@@ -243,7 +248,7 @@ function tabContent(
       if (!contract) return null;
       return {
         feature: { kind: "contract", contract },
-        lead: clip(lesson.explanations.contract.junior || lesson.meta.summary, 190),
+        lead: clip(explanationLead(lesson, "contract") || lesson.meta.summary, 190),
         headerRight: clip(
           `${base(contract.file)}${contract.beaconLines.length ? `:${contract.beaconLines[0]}` : ""}`,
           90,
@@ -255,7 +260,7 @@ function tabContent(
       if (!before.trim() && !after.trim()) return null;
       return {
         feature: { kind: "dataflow", before, after },
-        lead: clip(lesson.explanations.dataflow.junior || lesson.meta.summary, 190),
+        lead: clip(explanationLead(lesson, "dataflow") || lesson.meta.summary, 190),
         headerRight: clip(lesson.meta.title, 90),
       };
     }

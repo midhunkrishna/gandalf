@@ -126,6 +126,37 @@ describe("validateLesson", () => {
     expect(warnings).toHaveLength(1);
   });
 
+  it("stays silent on a lite lesson's typed-empty sections", () => {
+    const skipped = { eli5: "s", junior: "s", senior: "s", architect: "s" };
+    const lesson = mkLesson({
+      meta: {
+        id: "t-2",
+        title: "t",
+        fromRef: "a",
+        toRef: "b",
+        ticketId: null,
+        createdAt: new Date().toISOString(),
+        hypothesis: "h",
+        summary: "s",
+        verdict: "behavioral",
+        breakingCount: 0,
+        profile: "lite",
+      },
+      dataflow: { mermaid: "", sankey: null, narrative: { before: "not generated", after: "" } },
+      patterns: { detected: [], adr: null },
+      explanations: { behavioral: skipped, dependency: skipped, contract: skipped, dataflow: skipped },
+      retrieval: { questions: [] },
+    });
+    expect(validateLesson(lesson)).toEqual([]);
+  });
+
+  it("still flags an empty dataflow on a full lesson", () => {
+    const lesson = mkLesson({
+      dataflow: { mermaid: "", sankey: null, narrative: { before: "b", after: "a" } },
+    });
+    expect(validateLesson(lesson).filter((i) => i.section === "dataflow")).toHaveLength(1);
+  });
+
   it("errors on sankey links referencing missing nodes", () => {
     const lesson = mkLesson({
       dataflow: {

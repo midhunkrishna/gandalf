@@ -80,9 +80,51 @@ Generation drives several `claude -p` calls (per-file passes plus a fan-out of f
 | `--ticket <id>` | *(none)* | force a ticket id for the intent overlay |
 | `--cwd <dir>` | current dir | repository to analyze |
 | `--out-dir <dir>` | *(configured location)* | where to write the lesson; overrides `lesson_location` (see Configuration) |
-| `--model-file <m>` | `sonnet` | model for per-file passes |
-| `--model-synth <m>` | `opus` | model for the synthesis passes |
+| `--lite` / `--full` | `--full` | generation profile (see below) |
+| `--model-file <m>` | *(profile: `sonnet` full, `haiku` lite)* | model for per-file passes; overrides the profile |
+| `--model-synth <m>` | *(profile: `opus` full, `sonnet` lite)* | model for the synthesis pass; overrides the profile |
 | `--concurrency <n>` | `4` | parallel per-file passes |
+
+### Generation profiles
+
+A full lesson is expensive. Five changed files cost about $3.28, and three quarters
+of that is the seven opus synthesis passes. That is fine for a commit worth
+studying and far too much for every commit that lands during a work day.
+
+The **lite** profile buys volume instead of depth. Per-file passes run on haiku,
+escalating to sonnet for a file with more than 150 changed lines or one of the
+repo's top three hotspots, and the seven synthesis passes collapse into one
+sonnet pass. On the same five-file sample commit that measured about $0.50,
+roughly a sixth of the full cost.
+
+| | Full | Lite |
+|---|---|---|
+| Keeps | every lens | Overview, Dependencies, Walkthrough (with beacons), Behavioral, Contracts, Complexity |
+| Drops | nothing | Patterns, Data flow, Recall, and the tiered "Explain for" text |
+| File passes | sonnet | haiku, sonnet on heavy files |
+| Synthesis | 7 passes on opus | 1 merged pass on sonnet |
+
+Everything deterministic is unaffected: contracts, beacons, TL;DRs, complexity
+metrics and the dependency graph's node set come from the file passes and the
+evidence bundle, not from the synthesis pass.
+
+Resolution is flag > config > command default, and `gandalf generate` defaults
+to full while `gandalf watch` defaults to lite (watch teaches every commit, so
+volume decides). Watch prints the profile it resolved at startup.
+
+```bash
+gandalf generate --lite          # cheap lesson for this diff
+gandalf watch --full             # spend the money on every commit
+```
+
+Set `generation_profile: "lite"` (or `"full"`) in `~/.gandalf/config.yaml` to pin
+both commands to one profile. A lite lesson is marked `lite` in the viewer's
+header and lesson list, and the lenses it never generated are hidden rather than
+shown empty.
+
+The honest framing: lite is for watch-mode volume, so a day of twenty commits
+costs about ten dollars instead of sixty-five. When a commit is worth studying,
+re-run it with `gandalf generate --full`.
 
 ### Browse lessons in the viewer
 
@@ -104,9 +146,12 @@ npm run gandalf -- list
 ```bash
 npm run gandalf -- doctor              # all lessons
 npm run gandalf -- doctor --lesson <id>
+npm run gandalf -- doctor --fix        # apply the graph repairs it reports
 ```
 
 Reports cross-section drift (graph nodes that resolve to no file, contract/evidence references to unknown files, beacons past EOF, malformed diagrams). `generate` runs the same check automatically and prints warnings. Exit code 1 when errors are found.
+
+Graph repairs are printed for every run and written only with `--fix`: an edge pointing at a missing node gains that node (status `unchanged`) when the id reads like a module, and is dropped when it does not. `--fix` rewrites the stored `lesson.json` in place and never deletes a lesson.
 
 ### Export a self-contained lesson
 
@@ -129,6 +174,7 @@ documented default. `GANDALF_HOME_DIR` relocates `~/.gandalf` (used by tests).
 
 | key | default | meaning |
 |---|---|---|
+| `generation_profile` | *(unset)* | Which profile to use when neither `--lite` nor `--full` is given (see [Generation profiles](#generation-profiles)). Ships commented out: while it is unset, `generate` runs full and `watch` runs lite. Set it to `"lite"` or `"full"` to pin both commands. |
 | `lesson_location` | `"home-dir"` | Where lesson libraries live. `"home-dir"`: `~/.gandalf/<project-name>-<root-commit-sha12>/lessons`. Lessons never touch the analyzed repo (no lesson commits, no working-tree writes), and the store key uses the repo's root (first) commit, so it survives moving or renaming the project directory. `"project-wd"`: `<repo>/.gandalf/lessons`, the pre-config in-repo behavior. |
 
 Precedence everywhere: `--out-dir` flag > `lesson_location` > default.
@@ -173,6 +219,10 @@ Semantics worth knowing:
   commits stay in the library (no pruning yet). With no common history
   (or a shallow clone boundary) the baseline resets to HEAD with a warning;
   gandalf never guesses.
+- **Lite by default**: watch teaches every commit, so it uses the lite profile
+  unless you pass `--full` or set `generation_profile` in the config. The
+  resolved profile is logged at startup. See
+  [Generation profiles](#generation-profiles).
 - **Cost valve**: a first plan with >25 pending commits refuses and asks for
   `--max <n>` or `--from <ref>`, because each lesson costs minutes of claude
   usage.

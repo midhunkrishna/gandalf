@@ -1,4 +1,4 @@
-import type { FileChange, FilePassResult } from "./schemas.ts";
+import type { FileChange, FilePassResult, GraphNode } from "./schemas.ts";
 
 const BLOB_TRUNC = 6000;
 
@@ -56,27 +56,52 @@ const SYNTH_INTRO = `You are a staff engineer synthesizing one facet of a multi-
 ${STYLE}`;
 const SYNTH_OUTRO = "Output must satisfy the provided JSON schema exactly.";
 
-const SYNTH_NARRATIVE_SYSTEM = `${SYNTH_INTRO}
-Produce the lesson framing:
+// The narrative / behavioral / graph asks are shared: the full profile sends each in its
+// own pass, the lite profile merges all three into one. Keep them as fragments so both
+// paths ask for exactly the same artifact.
+const NARRATIVE_ASK = `Produce the lesson framing:
 - title: a specific, concrete headline (≤ ~12 words) naming what changed.
 - hypothesis: one line (≤ ~14 words) stating what the change is trying to accomplish.
-- summary: 2–3 sentences telling the arc — the itch (why the change was needed), the move (what changed), the payoff (what is now possible).
-${SYNTH_OUTRO}`;
+- summary: 2–3 sentences telling the arc — the itch (why the change was needed), the move (what changed), the payoff (what is now possible).`;
 
-const SYNTH_BEHAVIORAL_SYSTEM = `${SYNTH_INTRO}
-Produce the behavioral analysis:
+const BEHAVIORAL_ASK = `Produce the behavioral analysis:
 - verdict: "behavioral" (observable behavior changed) vs "refactor-only" (behavior preserved).
 - conditionalEquivalence: a one-line "Unchanged except when …" statement.
 - Up to 3 Trace Cards: a concrete input, before vs after output, divergent state, a Given-When-Then caption, and safety. These are ILLUSTRATIVE — you reason from the code, you do NOT execute it (the illustrative flag is always true).
 - For EACH Trace Card, also include a "prediction" that lets the reader guess before the after-output is shown: a one-line "question" stem (e.g. "What does it return now?") and up to 2 "distractors" — plausible-but-wrong alternative after-outputs a careful reviewer might guess, grounded in the code. The correct answer is the card's afterOutput (do NOT repeat it in distractors). Leave distractors empty (the reader then free-recalls) if no credible wrong answer exists; set prediction to null only for trivial cards.
 - workedExample: an optional short worked example (or null).
-- ripple: affected callers per changed symbol.
+- ripple: affected callers per changed symbol.`;
+
+const GRAPH_ASK = `Produce the EDGES of a module dependency graph delta. The node set is given to you: it is derived deterministically from the diff and is not yours to extend. Emit edges only between the listed node ids (kind: imports/conforms/uses/injects, plus a status), and only edges you can ground in the code.
+rippleTargets = modules likely needing a corresponding change, informed by the change-coupling evidence (files that historically change together). Every entry MUST be one of the listed node ids, bare, with no prose or parenthetical reasoning (the viewer matches them literally to highlight nodes).`;
+
+const SYNTH_NARRATIVE_SYSTEM = `${SYNTH_INTRO}
+${NARRATIVE_ASK}
+${SYNTH_OUTRO}`;
+
+const SYNTH_BEHAVIORAL_SYSTEM = `${SYNTH_INTRO}
+${BEHAVIORAL_ASK}
 ${SYNTH_OUTRO}`;
 
 const SYNTH_GRAPH_SYSTEM = `${SYNTH_INTRO}
-Produce a module dependency graph delta: nodes (with status) and edges (kind: imports/conforms/uses/injects, with status). rippleTargets = modules likely needing a corresponding change — informed by the change-coupling evidence (files that historically change together).
-IMPORTANT: each node's "module" field MUST be one of the CANONICAL MODULES listed in the context — the viewer joins nodes to files on these exact strings. For modules untouched by the diff (unchanged context nodes), use the same taxonomy (e.g. "Core/RenderEngine", "App").
-rippleTargets entries MUST be exact node ids or canonical module values — bare identifiers, no prose or parenthetical reasoning (the viewer matches them literally to highlight nodes).
+${GRAPH_ASK}
+${SYNTH_OUTRO}`;
+
+/**
+ * Lite profile: the three load-bearing asks in one pass, keyed by their object fields.
+ * Same wording as the focused passes, so the artifacts are the same shape either way.
+ */
+const SYNTH_LITE_SYSTEM = `${SYNTH_INTRO}
+Produce THREE facets of the lesson in a single object, under exactly these keys:
+
+"narrative":
+${NARRATIVE_ASK}
+
+"behavioral":
+${BEHAVIORAL_ASK}
+
+"graph":
+${GRAPH_ASK}
 ${SYNTH_OUTRO}`;
 
 const SYNTH_DATAFLOW_SYSTEM = `${SYNTH_INTRO}
@@ -146,21 +171,55 @@ export interface SynthesisPrompts {
   retrieval: Built;
 }
 
+/** The graph pass's node set, listed as ground truth in its ask (not the shared body). */
+function graphNodeList(nodes: GraphNode[]): string {
+  const list = nodes.length
+    ? nodes.map((n) => `- ${n.id}  (module: ${n.module}, status: ${n.status})`).join("\n")
+    : "(none: emit no edges)";
+  return `GRAPH NODES (ground truth: "from", "to" and every rippleTarget must be exactly one of these ids):
+${list}`;
+}
+
+function graphAsk(nodes: GraphNode[]): string {
+  return `${graphNodeList(nodes)}
+
+Produce the module dependency graph edges now.`;
+}
+
 /** Build the seven focused synthesis prompts that the pipeline fans out in parallel. */
 export function synthesisPrompts(
   summaries: PerFileSummary[],
   evidenceSummary: string,
   intent: string | null,
+  graphNodes: GraphNode[],
 ): SynthesisPrompts {
   const body = synthBody(summaries, evidenceSummary, intent);
   const mk = (system: string, ask: string): Built => ({ system, prompt: `${body}\n\n${ask}` });
   return {
     narrative: mk(SYNTH_NARRATIVE_SYSTEM, "Produce the lesson title, hypothesis, and summary now."),
-    graph: mk(SYNTH_GRAPH_SYSTEM, "Produce the module dependency graph delta now."),
+    graph: mk(SYNTH_GRAPH_SYSTEM, graphAsk(graphNodes)),
     dataflow: mk(SYNTH_DATAFLOW_SYSTEM, "Produce the data flow now."),
     patterns: mk(SYNTH_PATTERNS_SYSTEM, "Produce the patterns analysis now."),
     behavioral: mk(SYNTH_BEHAVIORAL_SYSTEM, "Produce the behavioral analysis now."),
     explanations: mk(SYNTH_EXPLANATIONS_SYSTEM, "Produce the per-lens tiered explanations now."),
     retrieval: mk(SYNTH_RETRIEVAL_SYSTEM, "Produce the retrieval-practice questions now."),
+  };
+}
+
+/** Build the single merged synthesis prompt the lite profile runs instead of the seven. */
+export function liteSynthesisPrompt(
+  summaries: PerFileSummary[],
+  evidenceSummary: string,
+  intent: string | null,
+  graphNodes: GraphNode[],
+): Built {
+  const body = synthBody(summaries, evidenceSummary, intent);
+  return {
+    system: SYNTH_LITE_SYSTEM,
+    prompt: `${body}
+
+${graphNodeList(graphNodes)}
+
+Produce the narrative, the behavioral analysis, and the graph edges now.`,
   };
 }
