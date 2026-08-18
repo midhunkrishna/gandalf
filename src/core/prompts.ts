@@ -19,6 +19,13 @@ const STYLE = `VOICE — every piece of prose you produce:
 - No hedging ("may", "could potentially"), no throat-clearing ("This change introduces…", "It's worth noting"), at most one dash per paragraph.
 - Cut roughly 30% of what you would normally write: one vivid specific beats three generic claims.`;
 
+/**
+ * Cache-invalidation version for the per-file pass (see passCache.ts). Bump it
+ * whenever FILE_SYSTEM, STYLE, or filePassPrompt changes meaningfully — cached
+ * pass outputs produced under the old prompt are discarded on the next run.
+ */
+export const FILE_PASS_PROMPT_VERSION = 1;
+
 const FILE_SYSTEM = `You are a senior engineer writing precise teaching material about ONE changed file in a code review.
 Rules:
 - Ground every complexity claim in the provided metrics. If metrics are absent, ESTIMATE cognitive complexity using SonarSource rules (ignore shorthand like a whole switch; +1 per break in linear flow — loops/conditionals/catch/sequences of boolean ops/recursion; +1 extra per level of nesting) and note it is an estimate.

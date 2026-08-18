@@ -18,6 +18,7 @@ import {
   type PerFileSummary,
 } from "./prompts.ts";
 import { validateLesson, formatIssues, repairGraph } from "./validate.ts";
+import { passKey, type PassCache } from "./passCache.ts";
 import {
   FilePassResult,
   SynthNarrative,
@@ -49,6 +50,8 @@ export interface GenerateOptions {
   concurrency?: number;
   /** Generation profile; defaults to "full" (the behavior that predates profiles). */
   profile?: GenerationProfile;
+  /** Content-addressed cache for per-file passes; omit to run every pass live. */
+  passCache?: PassCache;
   onProgress?: (msg: string) => void;
 }
 
@@ -332,22 +335,35 @@ export async function generateLesson(opts: GenerateOptions): Promise<LessonBundl
   log(`Analyzing ${analyzable.length} file(s) with claude -p…`);
   const contracts: ContractChange[] = [];
   const cognitiveByFile = new Map<string, FilePassResult["cognitive"]>();
+  let cacheHits = 0;
   const analyzeOne = async (f: FileChange) => {
-    const built = filePassPrompt(f, evidenceForFile(ev, f.path));
-    const res = await claudeStructured(FilePassResult, {
-      system: built.system,
-      prompt: built.prompt,
-      // An explicit --model-file wins; otherwise the profile picks (lite escalates per file).
-      model: opts.modelFile ?? (profile === "lite" ? liteFileModel(f, ev.hotspots) : "sonnet"),
-      cwd,
-      label: `file:${f.path}`,
-    });
+    // An explicit --model-file wins; otherwise the profile picks (lite escalates per file).
+    const model = opts.modelFile ?? (profile === "lite" ? liteFileModel(f, ev.hotspots) : "sonnet");
+    // The key is content-addressed (blobs + prompt/schema version + model), so a
+    // regeneration or a rebase whose before/after blobs are unchanged reuses the
+    // validated output instead of repaying the Claude call.
+    const key = passKey({ beforeBlob: f.beforeBlob, afterBlob: f.afterBlob, model });
+    const cached = (await opts.passCache?.get(key)) ?? null;
+    let res = cached;
+    if (!res) {
+      const built = filePassPrompt(f, evidenceForFile(ev, f.path));
+      res = await claudeStructured(FilePassResult, {
+        system: built.system,
+        prompt: built.prompt,
+        model,
+        cwd,
+        label: `file:${f.path}`,
+      });
+      await opts.passCache?.put(key, res);
+    } else {
+      cacheHits += 1;
+    }
     f.tldr = res.tldr;
     f.beacons = res.beacons;
     cognitiveByFile.set(f.path, res.cognitive);
     // collect contracts onto the lesson later via closure
     contracts.push(...res.contracts);
-    log(`  ✓ ${f.path}`);
+    log(`  ✓ ${f.path}${cached ? " (cached)" : ""}`);
   };
   // A failed per-file pass must not sink the whole (multi-minute, usage-burning)
   // run: degrade that file to a collapsed TLDR and keep going.
@@ -370,6 +386,9 @@ export async function generateLesson(opts: GenerateOptions): Promise<LessonBundl
   if (analyzable.length > 0) {
     await analyzeSafe(analyzable[0]!);
     await mapLimit(analyzable.slice(1), concurrency, (f) => analyzeSafe(f));
+  }
+  if (opts.passCache && analyzable.length > 0) {
+    log(`cache: ${cacheHits}/${analyzable.length} file passes reused`);
   }
 
   // ticket overlay

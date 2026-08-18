@@ -20,9 +20,15 @@ import { validateLesson, formatIssues, repairGraph } from "../src/core/validate.
 import { createLogger, isLogLevel, type LogLevel } from "../src/core/log.ts";
 import { runOnce, runDaemon, type CommitTask, type WatchRunOptions } from "../src/core/watch.ts";
 import { acquireLock, releaseLock, loadJournal } from "../src/core/journal.ts";
+import { PassCache, cacheStats } from "../src/core/passCache.ts";
 
 /** git's well-known empty-tree object — the diff base for root commits. */
 const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+
+/** Per-file pass cache lives beside the lesson store (never in the analyzed repo). */
+function passCacheDir(storeDir: string): string {
+  return join(storeDir, "pass-cache");
+}
 
 /**
  * Shared per-invocation store resolution: repo root + user config + --out-dir
@@ -81,8 +87,10 @@ program
   .option("--model-file <model>", "model for per-file passes (overrides the profile)")
   .option("--model-synth <model>", "model for the synthesis pass (overrides the profile)")
   .option("--concurrency <n>", "parallel per-file passes", "4")
+  .option("--no-cache", "run every per-file pass live, ignoring the pass cache")
   .action(async (opts) => {
-    const { cwd, lessonsDir, config } = await resolveStore(opts);
+    const store = await resolveStore(opts);
+    const { cwd, lessonsDir, config } = store;
     const profile = resolveProfile(opts, config.generation_profile, "full");
     const bundle = await generateLesson({
       cwd,
@@ -93,6 +101,7 @@ program
       modelSynth: opts.modelSynth,
       concurrency: Number(opts.concurrency) || 4,
       profile,
+      passCache: opts.cache === false ? undefined : new PassCache(passCacheDir(store.storeDir)),
       onProgress: (m) => process.stderr.write(`${m}\n`),
     });
     const file = await saveLesson(bundle, lessonsDir);
@@ -139,6 +148,10 @@ program
       `  generation_profile: ${config.generation_profile ?? "(unset: generate runs full, watch runs lite)"}`,
     );
     console.log(`  lessons dir: ${lessonsDir} (${store.source})`);
+    const cache = await cacheStats(passCacheDir(store.storeDir));
+    console.log(
+      `  pass cache: ${passCacheDir(store.storeDir)} — ${cache.entries} entr${cache.entries === 1 ? "y" : "ies"}, ${(cache.bytes / (1024 * 1024)).toFixed(1)} MB`,
+    );
     const metas = await listLessons(lessonsDir);
     const targets = opts.lesson ? metas.filter((m) => m.id === opts.lesson) : metas;
     if (!targets.length) {
@@ -252,6 +265,7 @@ program
   .option("--model-file <model>", "model for per-file passes (overrides the profile)")
   .option("--model-synth <model>", "model for the synthesis pass (overrides the profile)")
   .option("--concurrency <n>", "parallel per-file passes", "4")
+  .option("--no-cache", "run every per-file pass live, ignoring the pass cache")
   .action(async (opts) => {
     const log = createLogger(logLevel("debug"));
     const store = await resolveStore(opts);
@@ -303,6 +317,7 @@ program
         inferTicket: opts.inferTicket !== false,
       },
     };
+    const passCache = opts.cache === false ? undefined : new PassCache(passCacheDir(store.storeDir));
     const deps = {
       generate: (t: CommitTask) =>
         generateLesson({
@@ -314,6 +329,7 @@ program
           modelSynth: opts.modelSynth,
           concurrency: Number(opts.concurrency) || 4,
           profile,
+          passCache,
           onProgress: (m: string) => log.debug(m),
         }),
       save: (b: Parameters<typeof saveLesson>[0]) => saveLesson(b, store.lessonsDir),
