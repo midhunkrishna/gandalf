@@ -26,11 +26,18 @@ Optional tools sharpen the deterministic metrics if present on your `PATH` (gand
 
 ### Install
 
+Nothing to build — the package ships with the viewer prebuilt:
+
 ```bash
-git clone <repo-url> gandalf
-cd gandalf
-npm install
-npm run build:web        # build the viewer; required for `gandalf serve` and `gandalf build`
+npx gandalf-lessons generate     # teach the current repo's HEAD vs working tree
+npx gandalf-lessons serve        # browse the lessons at localhost:4173
+```
+
+Or install it once so the command is just `gandalf`:
+
+```bash
+npm install -g gandalf-lessons
+gandalf generate
 ```
 
 Confirm Claude Code is ready:
@@ -39,14 +46,25 @@ Confirm Claude Code is ready:
 claude --version         # should print a version; if not, install + log in to Claude Code first
 ```
 
-Recommended: install `gandalf` as a global command. This builds the viewer and drops a launcher on your `PATH`:
+Throughout this README, `gandalf <cmd>` and `npx gandalf-lessons <cmd>` are interchangeable.
+
+### Install from source (contributors)
+
+```bash
+git clone https://github.com/midhunkrishna/gandalf.git
+cd gandalf
+npm install
+npm run build:web        # build the viewer; required for `gandalf serve` and `gandalf build`
+```
+
+Optional: `scripts/install.sh` drops a `gandalf` launcher for the checkout on your `PATH`:
 
 ```bash
 ./scripts/install.sh                       # installs `gandalf` to ~/.local/bin
 GANDALF_BIN_DIR=/usr/local/bin ./scripts/install.sh   # …or elsewhere
 ```
 
-The launcher resolves Node itself (handy with `mise`/`nvm`), so `gandalf` works from any directory, including the non-interactive shells used by automation. Throughout this README, `npm run gandalf -- <cmd>` and `gandalf <cmd>` are interchangeable.
+The launcher resolves Node itself (handy with `mise`/`nvm`), so `gandalf` works from any directory, including the non-interactive shells used by automation.
 
 ---
 

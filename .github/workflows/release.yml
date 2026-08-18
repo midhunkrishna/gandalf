@@ -1,0 +1,72 @@
+# Versioned releases driven by package.json (issue #3).
+#
+# Every push to main checks whether v<package.json version> is already tagged.
+# A bumped version (no tag yet) gates the whole pipeline: typecheck + tests,
+# npm publish (prepublishOnly builds the viewer into dist/web), then the git
+# tag and a GitHub Release. An unchanged version makes the run a cheap no-op,
+# so releasing is just "bump the version and merge".
+#
+# Requires the NPM_TOKEN repository secret: an npm automation token with
+# publish rights on the gandalf-lessons package.
+name: release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so existing version tags are visible
+
+      - name: Detect version bump
+        id: version
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          if git rev-parse "v${version}" >/dev/null 2>&1; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "v${version} already tagged — nothing to release"
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.version.outputs.released == 'false'
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: Install
+        if: steps.version.outputs.released == 'false'
+        run: npm ci
+
+      - name: Typecheck + test
+        if: steps.version.outputs.released == 'false'
+        run: |
+          npm run typecheck
+          npm test
+
+      - name: Publish to npm
+        if: steps.version.outputs.released == 'false'
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Tag + GitHub Release
+        if: steps.version.outputs.released == 'false'
+        run: |
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
+          gh release create "v${{ steps.version.outputs.version }}" \
+            --title "v${{ steps.version.outputs.version }}" \
+            --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

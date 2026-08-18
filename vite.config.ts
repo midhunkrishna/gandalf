@@ -14,6 +14,10 @@ if (lessonFile && existsSync(lessonFile)) {
   injected = JSON.parse(readFileSync(lessonFile, "utf8"));
 }
 const singleFile = process.env.GANDALF_SINGLEFILE === "1";
+// Template mode (npm packaging): inject string sentinels instead of lesson data.
+// `gandalf build` later swaps them for real JSON (src/core/export.ts), so the
+// published package can export offline lessons without running Vite at all.
+const template = process.env.GANDALF_TEMPLATE === "1";
 const outDir = process.env.GANDALF_OUT_DIR
   ? resolve(process.env.GANDALF_OUT_DIR)
   : resolve(import.meta.dirname, "dist/web");
@@ -35,10 +39,16 @@ export default defineConfig({
   css: {
     postcss: { plugins: [tailwindcss(), autoprefixer()] },
   },
-  define: {
-    __GANDALF_LESSON__: inject(injected.lesson ?? null),
-    __GANDALF_LESSONS__: inject(injected.lessons ?? []),
-  },
+  define: template
+    ? {
+        // Sentinel names must match src/core/export.ts renderTemplate.
+        __GANDALF_LESSON__: '"__GANDALF_TPL_LESSON__"',
+        __GANDALF_LESSONS__: '"__GANDALF_TPL_LESSONS__"',
+      }
+    : {
+        __GANDALF_LESSON__: inject(injected.lesson ?? null),
+        __GANDALF_LESSONS__: inject(injected.lessons ?? []),
+      },
   build: {
     outDir,
     emptyOutDir: true,

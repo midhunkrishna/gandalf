@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { copyFile, mkdir, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { repoRoot } from "../src/core/git.ts";
 import { generateLesson } from "../src/core/pipeline.ts";
 import {
@@ -21,6 +21,7 @@ import { createLogger, isLogLevel, type LogLevel } from "../src/core/log.ts";
 import { runOnce, runDaemon, type CommitTask, type WatchRunOptions } from "../src/core/watch.ts";
 import { acquireLock, releaseLock, loadJournal } from "../src/core/journal.ts";
 import { PassCache, cacheStats } from "../src/core/passCache.ts";
+import { renderTemplate } from "../src/core/export.ts";
 
 /** git's well-known empty-tree object — the diff base for root commits. */
 const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
@@ -220,8 +221,27 @@ program
     }
     const id = opts.lesson ?? metas[0]!.id;
     const lesson = await loadLesson(lessonsDir, id);
+    const out = resolve(opts.out);
+    const done = () => {
+      console.log(`Static lesson exported: ${out}`);
+      console.log(`  lesson: ${lesson.meta.title} [${id}]`);
+      console.log(`  open it directly in a browser — no server needed.`);
+    };
 
+    // Fast path: the prebuilt template shipped in the npm package (or built once
+    // from source via build:template) — substitution only, no Vite at runtime.
     const projectRoot = resolve(import.meta.dirname, "..");
+    const templateFile = join(projectRoot, "dist", "template", "index.html");
+    if (existsSync(templateFile)) {
+      process.stderr.write(`Exporting ${id} from the prebuilt template…\n`);
+      const html = renderTemplate(await readFile(templateFile, "utf8"), lesson, metas);
+      await mkdir(dirname(out), { recursive: true });
+      await writeFile(out, html, "utf8");
+      done();
+      return;
+    }
+
+    // Source-checkout fallback: compile the export with Vite, lesson data injected.
     const stamp = Date.now();
     const lessonFile = join(tmpdir(), `gandalf-build-${stamp}.json`);
     const buildDir = join(tmpdir(), `gandalf-singlefile-${stamp}`);
@@ -234,12 +254,9 @@ program
         GANDALF_SINGLEFILE: "1",
         GANDALF_OUT_DIR: buildDir,
       });
-      const out = resolve(opts.out);
       await mkdir(dirname(out), { recursive: true });
       await copyFile(join(buildDir, "index.html"), out);
-      console.log(`Static lesson exported: ${out}`);
-      console.log(`  lesson: ${lesson.meta.title} [${id}]`);
-      console.log(`  open it directly in a browser — no server needed.`);
+      done();
     } finally {
       await rm(lessonFile, { force: true }).catch(() => {});
       await rm(buildDir, { recursive: true, force: true }).catch(() => {});
